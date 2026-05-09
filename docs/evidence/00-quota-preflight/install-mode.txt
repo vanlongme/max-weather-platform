@@ -1,0 +1,1 @@
+Install destination: /usr/local/bin (sudo=sudo)

@@ -1,0 +1,13 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+.env
+.env.*
+node_modules/
+*.pem
+kubeconfig*
+dist/
+coverage/
+.DS_Store
+docs/evidence/08-jenkins/admin-pwd.txt

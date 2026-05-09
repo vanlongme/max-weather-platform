@@ -1,0 +1,23 @@
+{
+  "active_plan": "/home/ubuntu/Workspace/assessment/.sisyphus/plans/max-weather-devops.md",
+  "started_at": "2026-05-09T09:11:24.273Z",
+  "session_ids": [
+    "ses_1f5232cbcffegt9Gwr9WxTxthM"
+  ],
+  "plan_name": "max-weather-devops",
+  "agent": "atlas",
+  "session_origins": {
+    "ses_1f5232cbcffegt9Gwr9WxTxthM": "direct"
+  },
+  "task_sessions": {
+    "todo:0": {
+      "task_key": "todo:0",
+      "task_label": "0",
+      "task_title": "**AWS Quota Pre-flight Check (BLOCKER)**",
+      "session_id": "ses_1f3fc8450ffe76Hap1KmY0hXub",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-09T09:16:26.794Z"
+    }
+  }
+}
