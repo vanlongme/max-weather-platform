@@ -1,10 +1,15 @@
-# ###############################################################################
-# # Required variables — copy this file to terraform.tfvars and fill in.
-# ###############################################################################
-# aws_region            = "us-east-1"
-# cluster_name          = "max-weather"
-# allowed_cidrs         = ["YOUR_PUBLIC_IP/32"]
-# cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
+###############################################################################
+# Required variables — copy this file to terraform.tfvars and fill in.
+#
+# Resource names are built from `master_prefix = "<environment>-<project>"`,
+# where `environment` is derived from this composition's directory name
+# (e.g. infra/envs/poc -> "poc"). With the defaults below, master_prefix
+# evaluates to "poc-max-weather".
+###############################################################################
+aws_region            = "us-east-1"
+project               = "max-weather"
+allowed_cidrs         = ["YOUR_PUBLIC_IP/32"]
+cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
 
 # ###############################################################################
 # # Optional overrides — uncomment to customize. Defaults preserve the original
@@ -91,7 +96,7 @@
 # # }
 
 # ###############################################################################
-# # CloudWatch log groups — `__CLUSTER_NAME__` is substituted with var.cluster_name
+# # CloudWatch log groups — `__CLUSTER_NAME__` is substituted with local.master_prefix
 # ###############################################################################
 # # log_groups = {
 # #   eks_application   = { name = "/aws/eks/__CLUSTER_NAME__/application" }
@@ -111,7 +116,7 @@
 # # }
 
 # ###############################################################################
-# # Secrets Manager — `__CLUSTER_NAME__` is substituted with var.cluster_name
+# # Secrets Manager — `__CLUSTER_NAME__` is substituted with local.master_prefix
 # ###############################################################################
 # # secrets = {
 # #   cognito_client_secret = {

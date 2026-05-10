@@ -4,8 +4,8 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "cluster_name" {
-  description = "EKS cluster name and resource prefix."
+variable "project" {
+  description = "Project name. Combined with the environment (derived from this composition's directory name) to form the master_prefix used for all resource names."
   type        = string
   default     = "max-weather"
 }
@@ -153,7 +153,7 @@ variable "log_groups" {
 }
 
 variable "ecr_repositories" {
-  description = "Map of ECR repositories to create, keyed by full repository name. Repository keys may include the literal placeholder __CLUSTER_NAME__ which the ecr module substitutes with var.cluster_name at apply time. Each value carries optional per-repo lifecycle overrides."
+  description = "Map of ECR repositories to create, keyed by full repository name. Repository keys may include the literal placeholder __CLUSTER_NAME__ which the ecr module substitutes with the master_prefix at apply time. Each value carries optional per-repo lifecycle overrides."
   type = map(object({
     image_tag_mutability       = optional(string)
     scan_on_push               = optional(bool)
