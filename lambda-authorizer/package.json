@@ -1,19 +1,16 @@
 {
   "name": "max-weather-authorizer",
   "version": "1.0.0",
-  "description": "Lambda TOKEN authorizer — JWT verification against Cognito JWKS",
+  "description": "Lambda TOKEN authorizer — HS256 JWT verification against Secrets Manager shared secret",
   "main": "src/index.js",
   "scripts": {
-    "test": "jest --forceExit"
+    "test": "echo 'No tests — see D4 decision'"
   },
   "dependencies": {
-    "jsonwebtoken": "^9.0.2",
-    "jwks-rsa": "^3.1.0"
-  },
-  "devDependencies": {
-    "jest": "^29.7.0"
+    "@aws-sdk/client-secrets-manager": "^3.600.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }
