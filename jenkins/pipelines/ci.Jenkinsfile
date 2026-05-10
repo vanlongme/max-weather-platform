@@ -59,14 +59,9 @@ pipeline {
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_HOST
           BASE=$ECR_HOST/$CLUSTER-base-nodejs:latest
           docker buildx build --platform linux/amd64 \
-<<<<<<<< HEAD:app/Jenkinsfile
             --build-arg BASE_IMAGE=$BASE \
             --build-arg BUILDER_IMAGE=$BASE \
-            -t $APP_REPO:staging-$GIT_SHA \
-            -t $APP_REPO:latest \
-========
             -t $APP_REPO:$GIT_SHA \
->>>>>>>> opencode/happy-garden:jenkins/pipelines/ci.Jenkinsfile
             --push app/
         '''
       }
