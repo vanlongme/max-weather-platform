@@ -5,7 +5,7 @@ set -euo pipefail
 CLUSTER="${CLUSTER:-max-weather}"
 REGION="${REGION:-us-east-1}"
 NAMESPACE="${NAMESPACE:-weather-staging}"
-STAGING_DIR="${STAGING_DIR:-infra/envs/staging}"
+STAGING_DIR="${STAGING_DIR:-infra/envs/poc}"
 
 log() { echo "[$(date -u +%FT%TZ)] $*"; }
 EVIDENCE_BASE="docs/evidence"

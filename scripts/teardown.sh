@@ -9,7 +9,7 @@ REGION="${REGION:-us-east-1}"
 CLUSTER="${CLUSTER:-max-weather}"
 NAMESPACE_STAGING="weather-staging"
 NAMESPACE_PROD="weather-prod"
-STAGING_DIR="${STAGING_DIR:-infra/envs/staging}"
+STAGING_DIR="${STAGING_DIR:-infra/envs/poc}"
 START_TIME=$(date +%s)
 
 log()  { echo "[$(date -u +%FT%TZ)] [INFO]  $*"; }

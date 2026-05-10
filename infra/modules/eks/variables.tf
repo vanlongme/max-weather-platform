@@ -15,7 +15,7 @@ variable "vpc_id" {
 }
 
 variable "subnet_ids" {
-  description = "Private subnet IDs for managed node groups and control plane ENIs."
+  description = "Subnet IDs for managed node groups and control plane ENIs. POC topology passes the public subnet IDs here; production should pass private subnet IDs."
   type        = list(string)
 }
 

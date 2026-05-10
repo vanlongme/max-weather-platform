@@ -8,11 +8,6 @@ output "public_subnet_ids" {
   value       = module.networking.public_subnet_ids
 }
 
-output "private_subnet_ids" {
-  description = "Private subnet IDs."
-  value       = module.networking.private_subnet_ids
-}
-
 output "cluster_name" {
   description = "EKS cluster name."
   value       = module.eks.cluster_name

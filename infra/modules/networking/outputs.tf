@@ -9,33 +9,13 @@ output "vpc_cidr_block" {
 }
 
 output "public_subnet_ids" {
-  description = "List of IDs of the public subnets (one per AZ)."
+  description = "List of IDs of the public subnets (one per AZ). Used for both worker placement and load balancers in the POC topology."
   value       = aws_subnet.public[*].id
-}
-
-output "private_subnet_ids" {
-  description = "List of IDs of the private subnets (one per AZ)."
-  value       = aws_subnet.private[*].id
-}
-
-output "nat_gateway_id" {
-  description = "ID of the first (or only) NAT Gateway."
-  value       = aws_nat_gateway.main[0].id
-}
-
-output "nat_gateway_public_ip" {
-  description = "Public IP address of the first (or only) NAT Gateway EIP."
-  value       = aws_eip.nat[0].public_ip
 }
 
 output "public_route_table_id" {
   description = "ID of the public route table."
   value       = aws_route_table.public.id
-}
-
-output "private_route_table_ids" {
-  description = "List of private route table IDs (one per AZ)."
-  value       = aws_route_table.private[*].id
 }
 
 output "internet_gateway_id" {

@@ -3,7 +3,7 @@
 # Builds a temp environment file from terraform outputs (never persists secrets).
 set -euo pipefail
 
-STAGING_DIR="${STAGING_DIR:-infra/envs/staging}"
+STAGING_DIR="${STAGING_DIR:-infra/envs/poc}"
 REGION="${REGION:-us-east-1}"
 TMP_ENV="/tmp/max-weather-env-$$.json"
 

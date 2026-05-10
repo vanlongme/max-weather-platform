@@ -3,13 +3,13 @@
 # Usage: TOKEN=$(scripts/get-token.sh)
 #
 # Reads COGNITO_TOKEN_ENDPOINT, COGNITO_CLIENT_ID, COGNITO_CLIENT_SECRET from env
-# OR falls back to terraform output from infra/envs/staging.
+# OR falls back to terraform output from infra/envs/poc.
 set -euo pipefail
 
 # Never trace - would expose secret in CI logs
 set +x
 
-STAGING_DIR="${STAGING_DIR:-infra/envs/staging}"
+STAGING_DIR="${STAGING_DIR:-infra/envs/poc}"
 REGION="${REGION:-us-east-1}"
 
 # If env vars not set, pull from terraform output
