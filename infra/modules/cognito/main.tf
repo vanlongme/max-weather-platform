@@ -30,16 +30,18 @@ resource "aws_cognito_resource_server" "weather_api" {
   }
 }
 
-resource "aws_cognito_user_pool_client" "weather_api" {
-  name         = "${var.cluster_name}-weather-api-client"
+resource "aws_cognito_user_pool_client" "app_clients" {
+  for_each = var.app_clients
+
+  name         = "${var.cluster_name}-${coalesce(each.value.name_suffix, each.key)}-client"
   user_pool_id = aws_cognito_user_pool.main.id
 
-  generate_secret                      = true
-  allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["client_credentials"]
-  allowed_oauth_scopes                 = ["${var.resource_server_identifier}/read"]
+  generate_secret                      = each.value.generate_secret
+  allowed_oauth_flows_user_pool_client = each.value.allowed_oauth_flows_user_pool_client
+  allowed_oauth_flows                  = each.value.allowed_oauth_flows
+  allowed_oauth_scopes                 = coalesce(each.value.allowed_oauth_scopes, ["${var.resource_server_identifier}/read"])
 
-  supported_identity_providers = ["COGNITO"]
+  supported_identity_providers = each.value.supported_identity_providers
 
   depends_on = [aws_cognito_resource_server.weather_api]
 }

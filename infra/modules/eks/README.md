@@ -6,13 +6,15 @@ Thin wrapper around the upstream
 
 - An EKS cluster with public + private API endpoints, public access locked to
   `var.allowed_cidrs` (`0.0.0.0/0` is rejected by validation).
-- A single managed node group `general` (AL2023, ON_DEMAND `t3.medium` by
-  default, min 2 / max 10 / desired 2) tagged for Cluster Autoscaler discovery.
+- One or more managed node groups driven by the `eks_managed_node_groups` map
+  (default: a single `general` group — AL2023, ON_DEMAND `t3.medium`, min 2 /
+  max 10 / desired 2 — tagged for Cluster Autoscaler discovery).
 - The bundled `cluster_addons`: CoreDNS, kube-proxy, VPC CNI, EKS Pod Identity
-  Agent (the last two installed `before_compute`).
+  Agent (the last two installed `before_compute`). Override via `cluster_addons`.
 - IRSA enabled and an OIDC provider exported as outputs.
-- Two access entries: `operator` (cluster-admin) and `jenkins`
-  (namespace-scoped Edit on `weather-staging` and `weather-prod`).
+- Two built-in access entries: `operator` (cluster-admin) and `jenkins`
+  (namespace-scoped Edit on `weather-staging` and `weather-prod`). Additional
+  entries can be merged in via `access_entries`.
 - Karpenter scaffolding via the upstream
   [`karpenter` sub-module](https://github.com/terraform-aws-modules/terraform-aws-eks/tree/master/modules/karpenter):
   controller IRSA role, node IAM role + instance profile, SQS queue, and
@@ -35,15 +37,50 @@ module "eks" {
   operator_principal_arn = data.aws_caller_identity.current.arn
   jenkins_role_arn       = module.iam.jenkins_role_arn
 
-  node_instance_types = ["t3.medium"]
-  node_min_size       = 2
-  node_max_size       = 10
-  node_desired_size   = 2
+  eks_managed_node_groups = {
+    general = {
+      instance_types = ["t3.medium"]
+      min_size       = 2
+      max_size       = 10
+      desired_size   = 2
+      labels         = { role = "general" }
+    }
+  }
 
   tags = {
     Project     = "max-weather"
     Environment = "poc"
     ManagedBy   = "terraform"
+  }
+}
+```
+
+### Multiple node groups
+
+Pass several entries in the same map to provision multiple node groups in one
+shot. Per-group `tags` are merged with `var.tags` and the autoscaler discovery
+tags automatically.
+
+```hcl
+eks_managed_node_groups = {
+  general = {
+    instance_types = ["t3.medium"]
+    min_size       = 2
+    max_size       = 10
+    desired_size   = 2
+    labels         = { role = "general" }
+  }
+
+  spot = {
+    instance_types = ["t3.large", "t3a.large"]
+    capacity_type  = "SPOT"
+    min_size       = 0
+    max_size       = 20
+    desired_size   = 0
+    labels         = { role = "spot" }
+    taints = {
+      spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" }
+    }
   }
 }
 ```
@@ -61,11 +98,10 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | `allowed_cidrs` | CIDRs allowed to reach the public EKS API endpoint. `0.0.0.0/0` is rejected. | `list(string)` | n/a | yes |
 | `operator_principal_arn` | IAM principal granted cluster-admin via access entry. | `string` | n/a | yes |
 | `jenkins_role_arn` | Jenkins IRSA role granted Edit on `weather-staging`/`weather-prod`. Empty -> jenkins access entry omitted (phase 1). | `string` | `""` | no |
-| `node_instance_types` | EC2 instance types for the default node group. | `list(string)` | `["t3.medium"]` | no |
-| `node_min_size` | Minimum nodes in the default node group. | `number` | `2` | no |
-| `node_max_size` | Maximum nodes in the default node group. | `number` | `10` | no |
-| `node_desired_size` | Initial desired node count. | `number` | `2` | no |
-| `node_disk_size` | Root EBS volume size in GiB per node. | `number` | `20` | no |
+| `eks_managed_node_groups` | Map of EKS managed node group definitions, keyed by group name. Passed through to the upstream `eks_managed_node_groups` input. | `map(object)` | single `general` group | no |
+| `eks_managed_node_group_defaults` | Defaults applied to every managed node group; per-group overrides win. | `any` | `{ attach_cluster_primary_security_group = false }` | no |
+| `cluster_addons` | Map of EKS add-ons to enable. Passed through to the upstream `cluster_addons` input. | `any` | CoreDNS / kube-proxy / VPC CNI / Pod Identity Agent | no |
+| `access_entries` | Extra access entries merged after the built-in operator + jenkins entries (user-supplied entries win on key collision). | `any` | `{}` | no |
 | `tags` | Common tags applied to all resources. | `map(string)` | `{}` | no |
 
 ## Outputs

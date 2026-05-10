@@ -28,3 +28,14 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "irsa_roles" {
+  description = "Map of IRSA roles to create. Keyed by short name; each value defines the ServiceAccount binding and inline policy. When null (default), the module's built-in defaults are used: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. All entries are skipped when oidc_provider_arn is empty (phase 1). Policy JSON may use the placeholders __AWS_REGION__, __AWS_ACCOUNT_ID__, __CLUSTER_NAME__."
+  type = map(object({
+    namespace        = string
+    service_account  = string
+    policy_json      = string
+    role_name_suffix = optional(string)
+  }))
+  default = null
+}

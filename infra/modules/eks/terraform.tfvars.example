@@ -12,11 +12,29 @@ allowed_cidrs          = ["YOUR_PUBLIC_IP/32"]
 operator_principal_arn = "arn:aws:iam::REPLACE_ACCOUNT_ID:user/REPLACE_OPERATOR"
 jenkins_role_arn       = "arn:aws:iam::REPLACE_ACCOUNT_ID:role/max-weather-jenkins" # optional; "" omits the jenkins access entry (phase 1)
 
-node_instance_types = ["t3.medium"]
-node_min_size       = 2
-node_max_size       = 10
-node_desired_size   = 2
-node_disk_size      = 20
+eks_managed_node_groups = {
+  general = {
+    instance_types = ["t3.medium"]
+    min_size       = 2
+    max_size       = 10
+    desired_size   = 2
+    labels         = { role = "general" }
+  }
+  # Example second pool:
+  # spot = {
+  #   instance_types = ["t3.large", "t3a.large"]
+  #   capacity_type  = "SPOT"
+  #   min_size       = 0
+  #   max_size       = 20
+  #   desired_size   = 0
+  #   labels         = { role = "spot" }
+  #   taints         = { spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" } }
+  # }
+}
+
+# eks_managed_node_group_defaults = { attach_cluster_primary_security_group = false }
+# cluster_addons                  — defaults are usually fine
+# access_entries                  — extra entries beyond operator + jenkins
 
 tags = {
   Project     = "max-weather"

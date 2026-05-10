@@ -13,6 +13,7 @@ module "cloudwatch" {
 
   cluster_name       = var.cluster_name
   log_retention_days = var.log_retention_days
+  log_groups         = var.log_groups
   tags               = local.common_tags
 }
 
@@ -29,7 +30,7 @@ module "networking" {
 module "ecr" {
   source = "../../modules/ecr"
 
-  repositories = ["${var.cluster_name}-api", "${var.cluster_name}-lambda-authorizer"]
+  repositories = var.ecr_repositories
   tags         = local.common_tags
 }
 
@@ -38,6 +39,7 @@ module "cognito" {
 
   cluster_name  = var.cluster_name
   domain_prefix = var.cognito_domain_prefix
+  app_clients   = var.cognito_app_clients
   tags          = local.common_tags
 }
 
@@ -45,6 +47,7 @@ module "secrets" {
   source = "../../modules/secrets"
 
   cluster_name = var.cluster_name
+  secrets      = var.secrets
   tags         = local.common_tags
 }
 
@@ -58,11 +61,13 @@ module "eks" {
   allowed_cidrs          = var.allowed_cidrs
   operator_principal_arn = data.aws_caller_identity.current.arn
   jenkins_role_arn       = module.iam.jenkins_role_arn
-  node_instance_types    = var.node_instance_types
-  node_min_size          = var.node_min_size
-  node_max_size          = var.node_max_size
-  node_desired_size      = var.node_desired_size
-  tags                   = local.common_tags
+
+  eks_managed_node_groups         = var.eks_managed_node_groups
+  eks_managed_node_group_defaults = var.eks_managed_node_group_defaults
+  cluster_addons                  = var.cluster_addons
+  access_entries                  = var.eks_access_entries
+
+  tags = local.common_tags
 
   depends_on = [module.cloudwatch, module.networking]
 }
@@ -75,5 +80,6 @@ module "iam" {
   aws_account_id    = data.aws_caller_identity.current.account_id
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_provider_url = module.eks.oidc_provider_url
+  irsa_roles        = var.irsa_roles
   tags              = local.common_tags
 }

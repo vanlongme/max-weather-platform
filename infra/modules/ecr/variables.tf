@@ -1,7 +1,16 @@
 variable "repositories" {
-  description = "List of ECR repository names to create."
-  type        = list(string)
-  default     = ["max-weather-api", "max-weather-lambda-authorizer"]
+  description = "Map of ECR repositories to create, keyed by repository name. Each value is an object with optional per-repo overrides; when an override is null the module-level default applies. The default map creates max-weather-api and max-weather-lambda-authorizer with module-level defaults."
+  type = map(object({
+    image_tag_mutability       = optional(string)
+    scan_on_push               = optional(bool)
+    keep_tagged_image_count    = optional(number)
+    untagged_image_expiry_days = optional(number)
+    tag_prefix_list            = optional(list(string), ["staging-", "prod-"])
+  }))
+  default = {
+    "max-weather-api"               = {}
+    "max-weather-lambda-authorizer" = {}
+  }
 }
 
 variable "image_tag_mutability" {
