@@ -68,3 +68,13 @@ output "external_secrets_role_arn" {
   description = "Convenience accessor for the External Secrets Pod Identity role ARN."
   value       = try(aws_iam_role.pod_identity["external-secrets"].arn, "")
 }
+
+output "lambda_authorizer_role_arn" {
+  description = "Convenience accessor for the Lambda Authorizer service role ARN. Empty if not present in service_roles."
+  value       = try(aws_iam_role.service["lambda_authorizer"].arn, "")
+}
+
+output "lambda_authorizer_role_name" {
+  description = "Convenience accessor for the Lambda Authorizer service role name."
+  value       = try(aws_iam_role.service["lambda_authorizer"].name, "")
+}

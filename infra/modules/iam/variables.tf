@@ -26,14 +26,32 @@ variable "role_name_suffix" {
 }
 
 variable "service_roles" {
-  description = "Map of AWS service-principal IAM roles (EC2, Lambda, ECS task, etc.). Keyed by short name. service_principals lists the AWS service principals the role can be assumed by (e.g. [\"lambda.amazonaws.com\"]). policy_json is the inline policy; managed_policy_arns attaches AWS-managed policies. Empty by default."
+  description = "Map of AWS service-principal IAM roles (EC2, Lambda, ECS task, etc.). Keyed by short name. service_principals lists the AWS service principals the role can be assumed by (e.g. [\"lambda.amazonaws.com\"]). policy_json is the inline policy; managed_policy_arns attaches AWS-managed policies. Default ships one built-in: lambda_authorizer (Lambda execution role with Secrets Manager access scoped to the authorizer JWT secret)."
   type = map(object({
     service_principals  = list(string)
     policy_json         = optional(string)
     managed_policy_arns = optional(list(string), [])
     role_name_suffix    = optional(string)
   }))
-  default = {}
+  default = {
+    lambda_authorizer = {
+      service_principals  = ["lambda.amazonaws.com"]
+      managed_policy_arns = ["arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+      policy_json         = <<-EOT
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowGetSecret",
+              "Effect": "Allow",
+              "Action": "secretsmanager:GetSecretValue",
+              "Resource": "arn:__AWS_PARTITION__:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:__CLUSTER_NAME__-authorizer-jwt-secret-*"
+            }
+          ]
+        }
+      EOT
+    }
+  }
 }
 
 variable "irsa_roles" {
