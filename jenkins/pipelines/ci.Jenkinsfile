@@ -10,7 +10,6 @@ pipeline {
   environment {
     AWS_REGION = 'us-east-1'
     CLUSTER    = 'max-weather'
-    NAMESPACE  = 'weather-staging'
     GIT_SHA    = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
     APP_REPO   = sh(returnStdout: true, script: 'cd infra/envs/poc && terraform output -raw weather_api_repository_url 2>/dev/null || echo PLACEHOLDER').trim()
     ECR_HOST   = sh(returnStdout: true, script: 'cd infra/envs/poc && terraform output -raw weather_api_repository_url 2>/dev/null | cut -d/ -f1 || echo PLACEHOLDER').trim()
@@ -56,61 +55,56 @@ pipeline {
     stage('Build + Push App Image') {
       steps {
         sh '''
+          set -euo pipefail
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_HOST
           BASE=$ECR_HOST/$CLUSTER-base-nodejs:latest
           docker buildx build --platform linux/amd64 \
+<<<<<<<< HEAD:app/Jenkinsfile
             --build-arg BASE_IMAGE=$BASE \
             --build-arg BUILDER_IMAGE=$BASE \
             -t $APP_REPO:staging-$GIT_SHA \
             -t $APP_REPO:latest \
+========
+            -t $APP_REPO:$GIT_SHA \
+>>>>>>>> opencode/happy-garden:jenkins/pipelines/ci.Jenkinsfile
             --push app/
-        '''
-      }
-    }
-
-    stage('Update Kustomize Image') {
-      steps {
-        sh '''
-          cd k8s/overlays/staging
-          kustomize edit set image weather-api=$APP_REPO:staging-$GIT_SHA
-        '''
-      }
-    }
-
-    stage('Install Cluster Addons') {
-      steps {
-        sh '''
-          CLUSTER_NAME=$CLUSTER AWS_REGION=$AWS_REGION bash scripts/install-helm-addons.sh
         '''
       }
     }
 
     stage('Deploy to Staging') {
       steps {
-        sh '''
-          aws eks update-kubeconfig --name $CLUSTER --region $AWS_REGION
-          kubectl apply -k k8s/overlays/staging
-          kubectl rollout status deployment/weather-api -n $NAMESPACE --timeout=180s
-        '''
+        build job: 'max-weather-deploy',
+          parameters: [
+            string(name: 'IMAGE_TAG', value: env.GIT_SHA),
+            string(name: 'ENV',       value: 'staging'),
+            string(name: 'APP_REPO',  value: env.APP_REPO)
+          ],
+          wait: true,
+          propagate: true
       }
     }
 
-    stage('Smoke Test') {
+    stage('Approve Prod Deploy') {
       steps {
-        sh '''
-          NLB=$(kubectl get svc -n ingress-nginx nginx-ingress-ingress-nginx-controller \
-            -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
-          for i in $(seq 1 30); do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Host: staging.max-weather.local" \
-              "http://$NLB/healthz" -m 10 || echo "000")
-            [ "$CODE" = "200" ] && break
-            echo "Waiting for smoke test... ($i/30)"
-            sleep 5
-          done
-          [ "$CODE" = "200" ] || { echo "Smoke test FAILED: HTTP $CODE"; exit 1; }
-          echo "Smoke test PASSED: HTTP 200"
-        '''
+        timeout(time: 24, unit: 'HOURS') {
+          input message: "Promote build ${env.GIT_SHA} to PRODUCTION?",
+                ok: 'Promote',
+                submitterParameter: 'PROMOTER'
+        }
+      }
+    }
+
+    stage('Deploy to Prod') {
+      steps {
+        build job: 'max-weather-deploy',
+          parameters: [
+            string(name: 'IMAGE_TAG', value: env.GIT_SHA),
+            string(name: 'ENV',       value: 'prod'),
+            string(name: 'APP_REPO',  value: env.APP_REPO)
+          ],
+          wait: true,
+          propagate: true
       }
     }
 
@@ -118,10 +112,10 @@ pipeline {
 
   post {
     success {
-      echo "Build SUCCESS: staging-${env.GIT_SHA} deployed to ${env.NAMESPACE}"
+      echo "CI SUCCESS: ${env.GIT_SHA} promoted through full pipeline"
     }
     failure {
-      echo "Build FAILED for commit: ${env.GIT_SHA}"
+      echo "CI FAILED for commit: ${env.GIT_SHA}"
     }
   }
 }

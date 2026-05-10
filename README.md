@@ -31,7 +31,7 @@ The data plane:
 | D1 | Architecture diagram | `docs/architecture.drawio`, `docs/architecture.png` |
 | D2 | Terraform IaC (modular, remote state) | `infra/bootstrap/`, `infra/envs/poc/`, `infra/modules/` (each module ships README.md + terraform.tfvars.example) |
 | D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, `k8s/helm/`, `scripts/install-helm-addons.sh` |
-| D4 | Jenkins CI/CD pipeline | `app/Jenkinsfile` (declarative), `app/README.md` (Jenkins setup) |
+| D4 | Jenkins CI/CD pipeline | `jenkins/pipelines/ci.Jenkinsfile`, `jenkins/pipelines/deploy.Jenkinsfile`, `jenkins/jobs.groovy`, `ci/README.md`, `jenkins/README.md` |
 | D5 | API Gateway + Cognito + Lambda authorizer | `infra/modules/{cognito,api-gateway,lambda-authorizer}/`, `lambda-authorizer/`, `docs/api-gateway-runbook.md` |
 | D6 | Postman collection + load test | `docs/postman/`, `tests/load/weather-load.js` |
 
@@ -87,9 +87,15 @@ make verify-evidence
 
 ```
 .
+├── jenkins/                     # Job DSL + JCasC pipeline definitions (see jenkins/README.md)
+│   ├── jobs.groovy              # Job DSL seed — defines max-weather-ci + max-weather-deploy
+│   ├── pipelines/
+│   │   ├── ci.Jenkinsfile       # Upstream CI pipeline (build, test, push, trigger)
+│   │   └── deploy.Jenkinsfile   # Downstream deploy pipeline (validate, apply, smoke, rollback)
+│   └── README.md                # Operator guide for the 2-job Jenkins flow
 ├── Makefile                     # Operator entrypoints
 ├── README.md                    # You are here
-├── app/                         # Weather API (Node.js) — owns its Dockerfile + Jenkinsfile
+├── app/                         # Weather API (Node.js) — owns its Dockerfile (Jenkins pipelines live in `jenkins/`)
 ├── base-image/                  # Chainguard apko base Node.js image (apko.yaml + build.sh)
 ├── lambda-authorizer/           # Cognito JWT validator (Node.js)
 ├── infra/
