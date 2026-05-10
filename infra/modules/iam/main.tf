@@ -1,4 +1,35 @@
 ###############################################################################
+# EKS cluster control-plane role
+###############################################################################
+
+data "aws_iam_policy_document" "eks_cluster_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["eks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "eks_cluster" {
+  name               = "${var.cluster_name}-eks-cluster"
+  assume_role_policy = data.aws_iam_policy_document.eks_cluster_assume_role.json
+  tags               = merge(var.tags, { Name = "${var.cluster_name}-eks-cluster" })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  role       = aws_iam_role.eks_cluster.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_vpc_resource_controller" {
+  role       = aws_iam_role.eks_cluster.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+}
+
+###############################################################################
 # Jenkins EC2 instance profile + role
 ###############################################################################
 
