@@ -12,7 +12,9 @@ ECR_HOST   := $(shell echo $(APP_REPO) | cut -d/ -f1)
         authorizer-package authorizer-deploy \
         deploy-staging deploy-prod \
         test lint \
-        evidence nuke
+        evidence nuke \
+        bootstrap postman load-test verify-evidence \
+        teardown teardown-force cloud-nuke-dry cloud-nuke-force
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -88,3 +90,27 @@ evidence: ## Collect evidence artifacts into docs/evidence/
 
 nuke: ## DANGER: Destroy all infrastructure using cloud-nuke
 	scripts/teardown.sh
+
+bootstrap: ## Initialize Terraform state backend (S3 + DynamoDB)
+	cd infra/bootstrap && terraform init && terraform apply -auto-approve
+
+postman: ## Run Postman collection via Newman against staging
+	bash scripts/run-postman.sh
+
+load-test: ## Run k6 load test with HPA evidence capture
+	bash scripts/run-loadtest.sh
+
+verify-evidence: ## Verify all evidence files are present
+	bash scripts/verify-evidence.sh
+
+teardown: ## Ordered teardown of all infrastructure (interactive)
+	bash scripts/teardown.sh
+
+teardown-force: ## Teardown without interactive prompt (CI use only)
+	@echo "destroy max-weather" | bash scripts/teardown.sh
+
+cloud-nuke-dry: ## Dry-run cloud-nuke to find orphaned resources
+	bash scripts/cloud-nuke-wrapper.sh --dry-run
+
+cloud-nuke-force: ## DANGER: Force cloud-nuke all max-weather resources
+	bash scripts/cloud-nuke-wrapper.sh --force

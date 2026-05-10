@@ -1,0 +1,61 @@
+---
+# cloud-nuke configuration for max-weather infrastructure cleanup.
+# Filters limit destruction to resources tagged or named with max-weather.
+# Reference: https://github.com/gruntwork-io/cloud-nuke#configuration
+
+ec2:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+security_groups:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ebs:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+elb:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+elbv2:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+lambda_function:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+cloudwatch_loggroup:
+  include:
+    names_regex:
+      - ".*/max-weather/.*"
+      - ".*max-weather.*"
+
+cognito_userpool:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ecr:
+  include:
+    names_regex:
+      - ".*weather-api.*"
+      - ".*max-weather.*"
+
+eks:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+iam_roles:
+  include:
+    names_regex:
+      - ".*max-weather.*"
