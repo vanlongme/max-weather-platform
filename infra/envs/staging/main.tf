@@ -90,58 +90,6 @@ module "eks_nodegroup" {
   depends_on = [module.eks_cluster]
 }
 
-module "nginx_ingress" {
-  source = "../../modules/nginx-ingress"
-
-  depends_on = [module.eks_nodegroup]
-}
-
-module "cluster_autoscaler" {
-  source = "../../modules/cluster-autoscaler"
-
-  cluster_name  = var.cluster_name
-  aws_region    = var.aws_region
-  irsa_role_arn = module.iam.cluster_autoscaler_role_arn
-
-  depends_on = [module.eks_nodegroup]
-}
-
-module "fluent_bit" {
-  source = "../../modules/fluent-bit"
-
-  aws_region     = var.aws_region
-  log_group_name = module.cloudwatch.eks_application_log_group
-  irsa_role_arn  = module.iam.fluent_bit_role_arn
-
-  depends_on = [module.eks_nodegroup, module.cloudwatch]
-}
-
-module "aws_lb_controller" {
-  source = "../../modules/aws-lb-controller"
-
-  cluster_name  = var.cluster_name
-  aws_region    = var.aws_region
-  vpc_id        = module.networking.vpc_id
-  irsa_role_arn = module.iam.aws_lb_controller_role_arn
-
-  depends_on = [module.eks_nodegroup]
-}
-
-module "external_secrets" {
-  source = "../../modules/external-secrets"
-
-  aws_region    = var.aws_region
-  irsa_role_arn = module.iam.external_secrets_role_arn
-
-  depends_on = [module.eks_nodegroup]
-}
-
-module "metrics_server" {
-  source = "../../modules/metrics-server"
-
-  depends_on = [module.eks_nodegroup]
-}
-
 module "namespaces" {
   source = "../../modules/namespaces"
 

@@ -1,0 +1,12 @@
+# external-secrets Helm values
+# Chart: https://charts.external-secrets.io (external-secrets 0.10.4)
+# Namespace: external-secrets (created by install script)
+# Templated values (must be substituted by install script):
+#   ${EXTERNAL_SECRETS_ROLE_ARN} - IRSA role ARN (terraform output: external_secrets_role_arn)
+installCRDs: true
+replicaCount: 1
+serviceAccount:
+  create: true
+  name: external-secrets
+  annotations:
+    eks.amazonaws.com/role-arn: ${EXTERNAL_SECRETS_ROLE_ARN}

@@ -30,7 +30,7 @@ The data plane:
 |----|-------------|----------|
 | D1 | Architecture diagram | `docs/architecture.drawio`, `docs/architecture.png` |
 | D2 | Terraform IaC (multi-env, remote state) | `infra/bootstrap/`, `infra/envs/{staging,prod}/`, `infra/modules/` |
-| D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, helm modules in `infra/modules/` |
+| D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, `k8s/helm/`, `scripts/install-helm-addons.sh` |
 | D4 | Jenkins CI/CD pipeline | `Jenkinsfile`, `ci/README.md` |
 | D5 | API Gateway + Cognito + Lambda authorizer | `infra/modules/{cognito,api-gateway,lambda-authorizer}/`, `lambda-authorizer/`, `docs/api-gateway-runbook.md` |
 | D6 | Postman collection + load test | `docs/postman/`, `tests/load/weather-load.js` |
@@ -60,13 +60,16 @@ make apply        # ~20 minutes
 # 3. Configure kubectl
 aws eks update-kubeconfig --name max-weather --region us-east-1
 
-# 4. Build and push the application image
+# 4. Install cluster Helm add-ons (ingress-nginx, autoscaler, fluent-bit, etc.)
+make install-addons
+
+# 5. Build and push the application image
 make app-build-push
 
-# 5. Package and deploy the Lambda authorizer
+# 6. Package and deploy the Lambda authorizer
 make authorizer-deploy
 
-# 6. Deploy Kubernetes workloads
+# 7. Deploy Kubernetes workloads (re-runs install-addons idempotently)
 make deploy-staging
 
 # 7. Smoke-test through API Gateway
@@ -94,28 +97,29 @@ make verify-evidence
 │   ├── envs/
 │   │   ├── staging/             # Staging environment composition
 │   │   └── prod/                # Production environment composition
-│   └── modules/                 # Reusable Terraform modules
+│   └── modules/                 # Reusable Terraform modules (AWS resources only)
 │       ├── networking/          # VPC, subnets, NAT, route tables
 │       ├── eks-cluster/         # EKS control plane + IRSA
 │       ├── eks-nodegroup/       # Managed node groups
 │       ├── ecr/                 # Container registries
 │       ├── cognito/             # User Pool, App Client, Resource Server
-│       ├── iam/                 # Service-account IAM roles (IRSA)
-│       ├── secrets/             # Secrets Manager + External Secrets
+│       ├── iam/                 # Service-account IAM roles (IRSA) for all addons
+│       ├── secrets/             # Secrets Manager seed values
 │       ├── jenkins/             # CI host (EC2 + Docker)
 │       ├── cloudwatch/          # Log groups
-│       ├── nginx-ingress/       # Helm release
-│       ├── aws-lb-controller/   # Helm release
-│       ├── cluster-autoscaler/  # Helm release
-│       ├── fluent-bit/          # Helm release
-│       ├── external-secrets/    # Helm release
-│       ├── metrics-server/      # Helm release
 │       └── namespaces/          # weather-staging, weather-prod, system
 ├── k8s/
 │   ├── base/                    # Kustomize base (Deployment, Service, HPA, NetworkPolicy, ResourceQuota)
-│   └── overlays/
-│       ├── staging/             # min replicas 2, lower limits
-│       └── prod/                # min replicas 3, higher limits
+│   ├── overlays/
+│   │   ├── staging/             # min replicas 2, lower limits
+│   │   └── prod/                # min replicas 3, higher limits
+│   └── helm/                    # Helm-managed cluster addons (values.yaml per chart)
+│       ├── nginx-ingress/
+│       ├── cluster-autoscaler/
+│       ├── fluent-bit/
+│       ├── aws-lb-controller/
+│       ├── external-secrets/
+│       └── metrics-server/
 ├── ci/                          # Jenkins README
 ├── docs/
 │   ├── architecture.drawio      # Source diagram
@@ -133,6 +137,7 @@ make verify-evidence
     ├── collect-evidence.sh
     ├── verify-evidence.sh
     ├── sanitize-outputs.sh
+    ├── install-helm-addons.sh
     ├── teardown.sh
     └── cloud-nuke-wrapper.sh
 ```
