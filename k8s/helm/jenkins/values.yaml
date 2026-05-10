@@ -67,9 +67,46 @@ controller:
     - aws-credentials:latest
     - pipeline-stage-view:latest
     - blueocean:latest
+    - job-dsl:latest
 
   installLatestPlugins: true
   installLatestSpecifiedPlugins: true
+
+  # Configuration as Code (JCasC) — applied on Jenkins startup.
+  # Configures Job DSL security and creates the seed job that bootstraps
+  # the max-weather-ci and max-weather-deploy pipeline jobs.
+  JCasC:
+    defaultConfig: true
+    # POC-only: disables Job DSL script approval prompt.
+    # Production: enable script security and pre-approve via approvedSignatures.
+    security:
+      globalJobDslSecurityConfiguration:
+        useScriptSecurity: false
+    configScripts:
+      seed-job: |
+        jobs:
+          - script: >
+              freeStyleJob('jenkins-job-dsl-seed') {
+                displayName('Job DSL Seed — max-weather')
+                description('Bootstraps max-weather-ci and max-weather-deploy via jenkins/jobs.groovy. Managed by JCasC — do not edit in UI.')
+                scm {
+                  git {
+                    remote {
+                      url(System.getenv('SCM_URL') ?: 'https://github.com/your-org/max-weather.git')
+                    }
+                    branch('main')
+                  }
+                }
+                triggers {
+                  scm('H/5 * * * *')
+                }
+                steps {
+                  dsl {
+                    external('jenkins/jobs.groovy')
+                    removeAction('DELETE')
+                  }
+                }
+              }
 
   # Disable the built-in test of cluster connectivity at install time —
   # it requires the Jenkins SA to already exist, which is created in
