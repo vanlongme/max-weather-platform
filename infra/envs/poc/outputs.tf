@@ -30,12 +30,12 @@ output "oidc_provider_url" {
 
 output "ecr_api_repository_url" {
   description = "ECR URL for the weather API image."
-  value       = module.ecr.repository_urls["${var.cluster_name}-api"]
+  value       = module.ecr.repository_urls["${local.master_prefix}-api"]
 }
 
 output "ecr_lambda_repository_url" {
   description = "ECR URL for the Lambda authorizer image."
-  value       = module.ecr.repository_urls["${var.cluster_name}-lambda-authorizer"]
+  value       = module.ecr.repository_urls["${local.master_prefix}-lambda-authorizer"]
 }
 
 output "cognito_client_id" {
