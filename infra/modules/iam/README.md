@@ -2,9 +2,9 @@
 
 Creates IAM roles and IRSA (IAM Roles for Service Accounts) trust policies for the cluster:
 
-- **Jenkins EC2 instance profile + role** — ECR push/pull, EKS describe, Lambda deploy, CloudWatch Logs.
-- **EKS node group role** — standard managed-node policies (worker, ECR read-only, CNI, SSM).
+- **EKS node group role** — standard managed-node policies (worker, ECR read-only, CNI, SSM). Always created.
 - **IRSA roles** — only created when `oidc_provider_arn` is non-empty (phase 2 apply):
+  - Jenkins (`jenkins:jenkins`) — ECR push/pull, EKS describe, Lambda deploy, CloudWatch Logs. Replaces the EC2 instance profile that was used by the deleted `infra/modules/jenkins` Terraform module.
   - Cluster Autoscaler (`kube-system:cluster-autoscaler`)
   - Fluent Bit (`amazon-cloudwatch:fluent-bit`)
   - AWS Load Balancer Controller (`kube-system:aws-load-balancer-controller`)
@@ -14,8 +14,8 @@ Creates IAM roles and IRSA (IAM Roles for Service Accounts) trust policies for t
 
 The IRSA roles depend on the EKS OIDC provider, which is created by the EKS module. Use this module in two phases:
 
-1. **Phase 1** — apply with `oidc_provider_arn = ""` (default). Only Jenkins and EKS node roles are created.
-2. **Phase 2** — pass `oidc_provider_arn` and `oidc_provider_url` from the EKS module outputs. IRSA roles are created.
+1. **Phase 1** — apply with `oidc_provider_arn = ""` (default). Only the EKS node role is created.
+2. **Phase 2** — pass `oidc_provider_arn` and `oidc_provider_url` from the EKS module outputs. All IRSA roles (including Jenkins) are created.
 
 ## Usage
 
@@ -47,8 +47,7 @@ module "iam" {
 
 | Name | Description |
 |---|---|
-| `jenkins_role_arn` / `jenkins_role_name` | Jenkins IAM role identifiers. |
-| `jenkins_instance_profile_name` / `jenkins_instance_profile_arn` | Jenkins instance profile. |
+| `jenkins_role_arn` / `jenkins_role_name` | Jenkins IRSA role identifiers (empty during phase 1). |
 | `eks_node_role_arn` / `eks_node_role_name` | EKS node group role. |
 | `cluster_autoscaler_role_arn` | IRSA role ARN (empty if phase 1). |
 | `fluent_bit_role_arn` | IRSA role ARN (empty if phase 1). |

@@ -35,8 +35,9 @@ variable "operator_principal_arn" {
 }
 
 variable "jenkins_role_arn" {
-  description = "Jenkins EC2 role ARN granted namespace-scoped Edit access."
+  description = "Jenkins IRSA role ARN granted namespace-scoped Edit access on weather-staging/weather-prod. Empty during phase 1 (before IAM module creates the IRSA role); the access entry is omitted when empty."
   type        = string
+  default     = ""
 }
 
 variable "node_instance_types" {

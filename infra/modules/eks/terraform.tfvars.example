@@ -10,7 +10,7 @@ subnet_ids = ["subnet-REPLACE-AZ1", "subnet-REPLACE-AZ2", "subnet-REPLACE-AZ3"]
 
 allowed_cidrs          = ["YOUR_PUBLIC_IP/32"]
 operator_principal_arn = "arn:aws:iam::REPLACE_ACCOUNT_ID:user/REPLACE_OPERATOR"
-jenkins_role_arn       = "arn:aws:iam::REPLACE_ACCOUNT_ID:role/max-weather-jenkins"
+jenkins_role_arn       = "arn:aws:iam::REPLACE_ACCOUNT_ID:role/max-weather-jenkins" # optional; "" omits the jenkins access entry (phase 1)
 
 node_instance_types = ["t3.medium"]
 node_min_size       = 2

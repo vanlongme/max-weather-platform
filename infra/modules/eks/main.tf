@@ -26,31 +26,35 @@ module "eks" {
   authentication_mode                      = "API_AND_CONFIG_MAP"
   enable_cluster_creator_admin_permissions = false
 
-  access_entries = {
-    operator = {
-      principal_arn = var.operator_principal_arn
-      policy_associations = {
-        admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = {
-            type = "cluster"
+  access_entries = merge(
+    {
+      operator = {
+        principal_arn = var.operator_principal_arn
+        policy_associations = {
+          admin = {
+            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = {
+              type = "cluster"
+            }
+          }
+        }
+      }
+    },
+    var.jenkins_role_arn == "" ? {} : {
+      jenkins = {
+        principal_arn = var.jenkins_role_arn
+        policy_associations = {
+          edit = {
+            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+            access_scope = {
+              type       = "namespace"
+              namespaces = ["weather-staging", "weather-prod"]
+            }
           }
         }
       }
     }
-    jenkins = {
-      principal_arn = var.jenkins_role_arn
-      policy_associations = {
-        edit = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
-          access_scope = {
-            type       = "namespace"
-            namespaces = ["weather-staging", "weather-prod"]
-          }
-        }
-      }
-    }
-  }
+  )
 
   cluster_addons = {
     coredns                = {}

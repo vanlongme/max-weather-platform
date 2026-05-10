@@ -1,27 +1,51 @@
 ###############################################################################
-# Jenkins EC2 instance profile + role
+# Jenkins IRSA role (was EC2 instance profile in the deleted jenkins TF module)
+#
+# Jenkins now runs as a Helm release (k8s/helm/jenkins/) inside EKS, so its
+# IAM role uses an OIDC federated trust policy bound to the
+# `jenkins:jenkins` ServiceAccount instead of the EC2 service principal.
+# The instance profile is no longer needed.
+#
+# Two-phase apply: trust policy is gated on var.oidc_provider_arn — empty
+# during phase 1, populated in phase 2 (after EKS creates the OIDC provider).
 ###############################################################################
 
 data "aws_iam_policy_document" "jenkins_assume_role" {
+  count = var.oidc_provider_arn == "" ? 0 : 1
+
   statement {
     effect  = "Allow"
-    actions = ["sts:AssumeRole"]
+    actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
+      type        = "Federated"
+      identifiers = [var.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_url}:sub"
+      values   = ["system:serviceaccount:jenkins:jenkins"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${var.oidc_provider_url}:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }
 
 resource "aws_iam_role" "jenkins" {
+  count = var.oidc_provider_arn == "" ? 0 : 1
+
   name               = "${var.cluster_name}-jenkins"
-  assume_role_policy = data.aws_iam_policy_document.jenkins_assume_role.json
+  assume_role_policy = data.aws_iam_policy_document.jenkins_assume_role[0].json
   tags               = merge(var.tags, { Name = "${var.cluster_name}-jenkins" })
 }
 
 resource "aws_iam_role_policy" "jenkins_ecr_eks" {
+  count = var.oidc_provider_arn == "" ? 0 : 1
+
   name = "jenkins-ecr-eks-access"
-  role = aws_iam_role.jenkins.id
+  role = aws_iam_role.jenkins[0].id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -73,12 +97,6 @@ resource "aws_iam_role_policy" "jenkins_ecr_eks" {
       },
     ]
   })
-}
-
-resource "aws_iam_instance_profile" "jenkins" {
-  name = "${var.cluster_name}-jenkins"
-  role = aws_iam_role.jenkins.name
-  tags = var.tags
 }
 
 ###############################################################################

@@ -74,8 +74,3 @@ variable "cognito_domain_prefix" {
   type        = string
 }
 
-variable "jenkins_key_name" {
-  description = "EC2 key pair name for Jenkins SSH access."
-  type        = string
-  default     = "max-weather-key"
-}

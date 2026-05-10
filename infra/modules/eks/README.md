@@ -60,7 +60,7 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | `subnet_ids` | Subnet IDs for nodes + control plane ENIs (POC: public, prod: private). | `list(string)` | n/a | yes |
 | `allowed_cidrs` | CIDRs allowed to reach the public EKS API endpoint. `0.0.0.0/0` is rejected. | `list(string)` | n/a | yes |
 | `operator_principal_arn` | IAM principal granted cluster-admin via access entry. | `string` | n/a | yes |
-| `jenkins_role_arn` | Jenkins EC2 role granted Edit on `weather-staging`/`weather-prod`. | `string` | n/a | yes |
+| `jenkins_role_arn` | Jenkins IRSA role granted Edit on `weather-staging`/`weather-prod`. Empty -> jenkins access entry omitted (phase 1). | `string` | `""` | no |
 | `node_instance_types` | EC2 instance types for the default node group. | `list(string)` | `["t3.medium"]` | no |
 | `node_min_size` | Minimum nodes in the default node group. | `number` | `2` | no |
 | `node_max_size` | Maximum nodes in the default node group. | `number` | `10` | no |

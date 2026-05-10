@@ -77,24 +77,3 @@ module "iam" {
   oidc_provider_url = module.eks.oidc_provider_url
   tags              = local.common_tags
 }
-
-module "namespaces" {
-  source = "../../modules/namespaces"
-
-  cluster_name = var.cluster_name
-
-  depends_on = [module.eks]
-}
-
-module "jenkins" {
-  source = "../../modules/jenkins"
-
-  vpc_id                = module.networking.vpc_id
-  public_subnet_id      = module.networking.public_subnet_ids[0]
-  instance_profile_name = module.iam.jenkins_instance_profile_name
-  key_name              = var.jenkins_key_name
-  allowed_cidrs         = var.allowed_cidrs
-  tags                  = local.common_tags
-
-  depends_on = [module.networking, module.iam]
-}
