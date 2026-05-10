@@ -80,6 +80,7 @@ fi
 # Phase 4: Helm Releases (karpenter LAST so it can process node deletions above).
 log "Phase 4: Uninstalling Helm releases"
 HELM_RELEASES=(
+  "jenkins:jenkins"
   "ingress-nginx:ingress-nginx"
   "aws-load-balancer-controller:kube-system"
   "cluster-autoscaler:kube-system"
@@ -101,7 +102,7 @@ log "Phase 5: Deleting Kubernetes namespaces"
 if kubectl config current-context &>/dev/null; then
   kubectl delete ns \
     "$NAMESPACE_STAGING" "$NAMESPACE_PROD" \
-    ingress-nginx amazon-cloudwatch external-secrets \
+    jenkins ingress-nginx amazon-cloudwatch external-secrets \
     --ignore-not-found --timeout=120s 2>/dev/null || warn "Namespace deletion had issues"
 fi
 

@@ -101,16 +101,15 @@ make verify-evidence
 │       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 20.24 + Karpenter sub-module (IAM, SQS, instance profile)
 │       ├── ecr/                 # Container registries
 │       ├── cognito/             # User Pool, App Client, Resource Server
-│       ├── iam/                 # Jenkins IAM + IRSA roles (cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)
+│       ├── iam/                 # IRSA roles (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)
 │       ├── secrets/             # Secrets Manager seed values
-│       ├── jenkins/             # CI host (EC2 + Docker)
-│       ├── cloudwatch/          # Log groups
-│       └── namespaces/          # weather-staging, weather-prod, system
+│       └── cloudwatch/          # Log groups
 ├── k8s/
 │   ├── base/                    # Kustomize base (Deployment, Service, HPA, NetworkPolicy, ResourceQuota)
 │   ├── overlays/
 │   │   ├── staging/             # min replicas 2, lower limits
 │   │   └── prod/                # min replicas 3, higher limits
+│   ├── manifests/               # Raw kubectl-applied YAML (namespaces, ResourceQuota, NetworkPolicies)
 │   └── helm/                    # Helm-managed cluster addons (values.yaml per chart)
 │       ├── nginx-ingress/
 │       ├── cluster-autoscaler/
@@ -118,6 +117,7 @@ make verify-evidence
 │       ├── aws-lb-controller/
 │       ├── external-secrets/
 │       ├── metrics-server/
+│       ├── jenkins/             # jenkinsci/jenkins chart, latest version at install (IRSA + ingress-nginx)
 │       └── karpenter/           # Karpenter v1.6.0 chart values + EC2NodeClass + NodePool
 ├── ci/                          # Jenkins README
 ├── docs/
@@ -183,8 +183,8 @@ Steady-state monthly cost (us-east-1, on-demand pricing) for the POC stack
 | API Gateway HTTP API (low volume) | 1 |
 | Cognito (under MAU limit) | 0 |
 | Secrets Manager (5 secrets) | 2 |
-| Jenkins t3.small EC2 | 12 |
-| **Total** | **~180** |
+| Jenkins (in-cluster pod, 8Gi gp3 PVC) | 1 |
+| **Total** | **~169** |
 
 POC topology savings vs a production-style network:
 
@@ -287,7 +287,7 @@ This runs `scripts/teardown.sh` which executes 10 phases in order:
 2. `kubectl delete -k k8s/overlays/{staging,prod}` to remove ingress (triggers NLB cleanup).
 3. Drains Karpenter-provisioned nodes by deleting `NodePool`/`EC2NodeClass`/`NodeClaim` so Karpenter terminates EC2 before its IAM role disappears.
 4. Sleeps 60s for AWS Load Balancer Controller to delete target groups.
-5. `helm uninstall` for all 7 releases: ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server, Karpenter (Karpenter last, after its workloads drain).
+5. `helm uninstall` for all 8 releases: ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server, Jenkins, Karpenter (Karpenter last, after its workloads drain).
 6. `kubectl delete ns` for application and system namespaces.
 7. Prompts for manual API Gateway deletion (it was created out-of-band per `docs/api-gateway-runbook.md`).
 8. `terraform destroy -auto-approve` in `infra/envs/poc` (destroys EKS, Karpenter SQS/IAM, VPC, etc.).

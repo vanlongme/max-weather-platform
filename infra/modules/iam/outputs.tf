@@ -1,21 +1,11 @@
 output "jenkins_role_arn" {
-  description = "ARN of the Jenkins EC2 instance role."
-  value       = aws_iam_role.jenkins.arn
+  description = "ARN of the Jenkins IRSA role (assumed by the jenkins:jenkins ServiceAccount). Empty during phase 1."
+  value       = try(aws_iam_role.jenkins[0].arn, "")
 }
 
 output "jenkins_role_name" {
-  description = "Name of the Jenkins EC2 instance role."
-  value       = aws_iam_role.jenkins.name
-}
-
-output "jenkins_instance_profile_name" {
-  description = "Name of the Jenkins EC2 instance profile."
-  value       = aws_iam_instance_profile.jenkins.name
-}
-
-output "jenkins_instance_profile_arn" {
-  description = "ARN of the Jenkins EC2 instance profile."
-  value       = aws_iam_instance_profile.jenkins.arn
+  description = "Name of the Jenkins IRSA role. Empty during phase 1."
+  value       = try(aws_iam_role.jenkins[0].name, "")
 }
 
 output "cluster_autoscaler_role_arn" {

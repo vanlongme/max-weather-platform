@@ -57,6 +57,7 @@ export EXTERNAL_SECRETS_ROLE_ARN="$(tf_out external_secrets_role_arn)"
 export KARPENTER_IAM_ROLE_ARN="$(tf_out karpenter_iam_role_arn)"
 export KARPENTER_QUEUE_NAME="$(tf_out karpenter_queue_name)"
 export KARPENTER_NODE_IAM_ROLE_NAME="$(tf_out karpenter_node_iam_role_name)"
+export JENKINS_IRSA_ROLE_ARN="$(tf_out jenkins_role_arn)"
 
 # Ensure kubeconfig points at the cluster.
 log "Updating kubeconfig for ${CLUSTER_NAME} in ${AWS_REGION}"
@@ -69,6 +70,7 @@ helm repo add autoscaler https://kubernetes.github.io/autoscaler >/dev/null
 helm repo add eks https://aws.github.io/eks-charts >/dev/null
 helm repo add external-secrets https://charts.external-secrets.io >/dev/null
 helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ >/dev/null
+helm repo add jenkinsci https://charts.jenkins.io >/dev/null
 helm repo update >/dev/null
 
 # Render a values file with envsubst into a temp file.
@@ -149,5 +151,20 @@ kubectl apply -f "${ec2nc_rendered}"
 kubectl apply -f "${np_rendered}"
 rm -f "${ec2nc_rendered}" "${np_rendered}"
 
+# 8. Application namespaces (replaces the deleted infra/modules/namespaces TF
+#    module). Applied AFTER ingress-nginx so the NetworkPolicy that allows
+#    traffic from the ingress-nginx namespace can resolve its target.
+log "Applying application namespaces (weather-staging, weather-prod)"
+kubectl apply -f "${REPO_ROOT}/k8s/manifests/namespaces.yaml"
+
+# 9. Jenkins (replaces the deleted infra/modules/jenkins EC2-based TF module).
+#    Chart version: latest at install time unless JENKINS_CHART_VERSION is set.
+JENKINS_CHART_VERSION="${JENKINS_CHART_VERSION:-$(helm search repo jenkinsci/jenkins --output json | jq -r '.[0].version')}"
+[[ -n "${JENKINS_CHART_VERSION}" && "${JENKINS_CHART_VERSION}" != "null" ]] \
+  || die "could not resolve jenkinsci/jenkins chart version (helm search returned empty)"
+log "Resolved jenkinsci/jenkins chart version: ${JENKINS_CHART_VERSION}"
+helm_install jenkins jenkinsci/jenkins "${JENKINS_CHART_VERSION}" \
+  jenkins "${HELM_DIR}/jenkins/values.yaml" true
+
 log "All cluster add-ons installed successfully."
-helm ls -A | grep -E '(NAME|nginx-ingress|cluster-autoscaler|aws-load-balancer-controller|aws-for-fluent-bit|external-secrets|metrics-server|karpenter)' || true
+helm ls -A | grep -E '(NAME|nginx-ingress|cluster-autoscaler|aws-load-balancer-controller|aws-for-fluent-bit|external-secrets|metrics-server|karpenter|jenkins)' || true
