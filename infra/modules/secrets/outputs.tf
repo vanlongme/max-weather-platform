@@ -8,14 +8,14 @@ output "secret_names" {
   value       = { for k, s in aws_secretsmanager_secret.secrets : k => s.name }
 }
 
-output "cognito_client_secret_arn" {
-  description = "ARN of the Cognito client secret in Secrets Manager."
-  value       = aws_secretsmanager_secret.secrets["cognito_client_secret"].arn
+output "authorizer_jwt_secret_arn" {
+  description = "ARN of the Lambda authorizer JWT signing secret in Secrets Manager."
+  value       = aws_secretsmanager_secret.secrets["authorizer_jwt_secret"].arn
 }
 
-output "cognito_client_secret_name" {
-  description = "Name of the Cognito client secret."
-  value       = aws_secretsmanager_secret.secrets["cognito_client_secret"].name
+output "authorizer_jwt_secret_name" {
+  description = "Name of the Lambda authorizer JWT signing secret."
+  value       = aws_secretsmanager_secret.secrets["authorizer_jwt_secret"].name
 }
 
 output "app_config_secret_arn" {

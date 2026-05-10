@@ -24,10 +24,11 @@ variable "secrets" {
     recovery_window_in_days = optional(number, 7)
   }))
   default = {
-    cognito_client_secret = {
-      name          = "/__CLUSTER_NAME__/cognito/client-secret"
-      description   = "Cognito app client secret for weather-api OAuth2."
-      initial_value = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
+    authorizer_jwt_secret = {
+      name                    = "__CLUSTER_NAME__-authorizer-jwt-secret"
+      description             = "HS256 JWT signing secret for the weather-api Lambda authorizer."
+      initial_value           = "PLACEHOLDER_POPULATE_VIA_CLI_AFTER_APPLY"
+      recovery_window_in_days = 0
     }
     app_config = {
       name          = "/__CLUSTER_NAME__/app/config"
