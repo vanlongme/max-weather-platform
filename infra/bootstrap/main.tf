@@ -1,9 +1,5 @@
-resource "random_id" "suffix" {
-  byte_length = 4
-}
-
 resource "aws_s3_bucket" "tfstate" {
-  bucket = "${var.project}-tfstate-${random_id.suffix.hex}"
+  bucket = "${var.project}-tfstate-${data.aws_caller_identity.current.account_id}"
 
   lifecycle {
     prevent_destroy = true
@@ -62,5 +58,3 @@ resource "aws_dynamodb_table" "tflock" {
     type = "S"
   }
 }
-
-
