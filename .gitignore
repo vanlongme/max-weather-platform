@@ -23,3 +23,5 @@ cloud-nuke*
 docs/postman/*.postman_environment.json
 coverage/
 *.tfvars
+.sisyphus/
+.agents/

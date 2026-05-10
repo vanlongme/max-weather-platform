@@ -41,11 +41,26 @@ pipeline {
       }
     }
 
-    stage('Build + Push Image') {
+    stage('Build + Push Base Image (apko)') {
+      when {
+        anyOf {
+          changeset 'base-image/**'
+          expression { return !sh(returnStdout: true, script: "aws ecr describe-images --repository-name ${CLUSTER}-base-nodejs --image-ids imageTag=latest --region ${AWS_REGION} 2>&1 || echo MISSING").contains('imageDigest') }
+        }
+      }
+      steps {
+        sh 'AWS_REGION=$AWS_REGION CLUSTER=$CLUSTER bash base-image/build.sh'
+      }
+    }
+
+    stage('Build + Push App Image') {
       steps {
         sh '''
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_HOST
+          BASE=$ECR_HOST/$CLUSTER-base-nodejs:latest
           docker buildx build --platform linux/amd64 \
+            --build-arg BASE_IMAGE=$BASE \
+            --build-arg BUILDER_IMAGE=$BASE \
             -t $APP_REPO:staging-$GIT_SHA \
             -t $APP_REPO:latest \
             --push app/

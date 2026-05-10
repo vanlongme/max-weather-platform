@@ -1,27 +1,5 @@
-###############################################################################
-# IRSA roles
-#
-# Single for_each driven by var.irsa_roles (or local.default_irsa_roles when
-# the variable is null). The default map ships:
-#   - jenkins             (jenkins:jenkins)               — ECR push, EKS describe, Lambda deploy, CloudWatch Logs
-#   - cluster-autoscaler  (kube-system:cluster-autoscaler)
-#   - fluent-bit          (amazon-cloudwatch:fluent-bit)
-#   - aws-lb-controller   (kube-system:aws-load-balancer-controller)
-#   - external-secrets    (external-secrets:external-secrets)
-#
-# Two-phase apply: when var.oidc_provider_arn == "" (phase 1, before EKS exists),
-# for_each evaluates to {} and no IRSA roles are created. Phase 2 sets the OIDC
-# provider ARN/URL from the eks module outputs and all 5 roles are created.
-#
-# Policy templating: jenkins's LambdaDeployAccess Resource ARN uses
-# __AWS_PARTITION__ / __AWS_REGION__ / __AWS_ACCOUNT_ID__ / __CLUSTER_NAME__
-# placeholders that are substituted here. Defaults live in locals (not in the
-# variable default) because Terraform forbids function calls — including
-# jsonencode() — in variable defaults.
-###############################################################################
-
 locals {
-  default_irsa_roles = {
+  default_pod_identity_roles = {
     jenkins = {
       namespace        = "jenkins"
       service_account  = "jenkins"
@@ -243,7 +221,7 @@ locals {
     }
   }
 
-  irsa_roles = var.irsa_roles == null ? local.default_irsa_roles : var.irsa_roles
+  pod_identity_roles_effective = var.pod_identity_roles == null ? local.default_pod_identity_roles : var.pod_identity_roles
 
-  irsa_roles_effective = var.oidc_provider_arn == "" ? {} : local.irsa_roles
+  irsa_roles_effective = (var.oidc_provider_arn == "" || var.oidc_provider_url == "") ? {} : var.irsa_roles
 }

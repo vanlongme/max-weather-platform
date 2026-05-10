@@ -31,7 +31,7 @@ variable "public_subnet_cidrs" {
 variable "eks_cluster_version" {
   description = "Kubernetes version for the EKS cluster."
   type        = string
-  default     = "1.30"
+  default     = "1.34"
 }
 
 variable "log_retention_days" {
@@ -55,14 +55,15 @@ variable "cognito_domain_prefix" {
 ###############################################################################
 
 variable "eks_managed_node_groups" {
-  description = "Map of EKS managed node groups passed through to the eks module. Default null preserves the module's single 'general' t3.medium 2/10/2 group."
+  description = "Map of EKS managed node groups passed through to the eks module. Default ships a single 'general' Bottlerocket t3.medium 1/10/1 init group; scale workload pods onto Karpenter-provisioned nodes."
   type        = any
   default = {
     general = {
       instance_types = ["t3.medium"]
-      min_size       = 2
+      ami_type       = "BOTTLEROCKET_x86_64"
+      min_size       = 1
       max_size       = 10
-      desired_size   = 2
+      desired_size   = 1
       labels         = { role = "general" }
     }
   }
@@ -93,8 +94,8 @@ variable "eks_access_entries" {
   default     = {}
 }
 
-variable "irsa_roles" {
-  description = "Map of IRSA roles to create via the iam module. Null (default) ships the five built-in roles: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. Override to add custom roles (replaces the defaults — re-declare any built-ins you want kept)."
+variable "pod_identity_roles" {
+  description = "Map of EKS Pod Identity roles to create via the iam module (pods.eks.amazonaws.com trust). Null (default) ships the five built-in roles: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. Override to add custom roles (replaces the defaults — re-declare any built-ins you want kept). The iam module emits role ARNs + bindings; the eks module creates the actual aws_eks_pod_identity_association resources."
   type = map(object({
     namespace        = string
     service_account  = string
@@ -102,6 +103,28 @@ variable "irsa_roles" {
     role_name_suffix = optional(string)
   }))
   default = null
+}
+
+variable "iam_service_roles" {
+  description = "Map of AWS service-principal IAM roles to create via the iam module (e.g. Lambda execution roles, EC2 instance roles). Empty by default."
+  type = map(object({
+    service_principals  = list(string)
+    policy_json         = optional(string)
+    managed_policy_arns = optional(list(string), [])
+    role_name_suffix    = optional(string)
+  }))
+  default = {}
+}
+
+variable "iam_irsa_roles" {
+  description = "Map of legacy IRSA (OIDC web-identity) roles to create via the iam module. Empty by default — prefer pod_identity_roles for new workloads."
+  type = map(object({
+    namespace        = string
+    service_account  = string
+    policy_json      = string
+    role_name_suffix = optional(string)
+  }))
+  default = {}
 }
 
 variable "log_groups" {
@@ -141,6 +164,7 @@ variable "ecr_repositories" {
   default = {
     "__CLUSTER_NAME__-api"               = {}
     "__CLUSTER_NAME__-lambda-authorizer" = {}
+    "__CLUSTER_NAME__-base-nodejs"       = {}
   }
 }
 

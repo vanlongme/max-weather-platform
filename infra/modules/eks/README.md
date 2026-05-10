@@ -7,8 +7,10 @@ Thin wrapper around the upstream
 - An EKS cluster with public + private API endpoints, public access locked to
   `var.allowed_cidrs` (`0.0.0.0/0` is rejected by validation).
 - One or more managed node groups driven by the `eks_managed_node_groups` map
-  (default: a single `general` group — AL2023, ON_DEMAND `t3.medium`, min 2 /
-  max 10 / desired 2 — tagged for Cluster Autoscaler discovery).
+  (default: a single `general` group — Bottlerocket x86_64, ON_DEMAND `t3.medium`,
+  min 1 / max 10 / desired 1 — tagged for Cluster Autoscaler discovery; serves as
+  the init worker that hosts cluster add-ons + Karpenter while Karpenter scales
+  workload nodes on top).
 - The bundled `cluster_addons`: CoreDNS, kube-proxy, VPC CNI, EKS Pod Identity
   Agent (the last two installed `before_compute`). Override via `cluster_addons`.
 - IRSA enabled and an OIDC provider exported as outputs.
@@ -30,21 +32,23 @@ module "eks" {
   source = "../../modules/eks"
 
   cluster_name    = "max-weather"
-  cluster_version = "1.30"
+  cluster_version = "1.34"
 
   vpc_id     = module.networking.vpc_id
   subnet_ids = module.networking.public_subnet_ids # POC: public; prod: private
 
-  allowed_cidrs          = ["203.0.113.10/32"]
-  operator_principal_arn = data.aws_caller_identity.current.arn
-  jenkins_role_arn       = module.iam.jenkins_role_arn
+  allowed_cidrs             = ["203.0.113.10/32"]
+  operator_principal_arn    = data.aws_caller_identity.current.arn
+  jenkins_role_arn          = module.iam.jenkins_role_arn
+  pod_identity_associations = module.iam.pod_identity_role_bindings
 
   eks_managed_node_groups = {
     general = {
       instance_types = ["t3.medium"]
-      min_size       = 2
+      ami_type       = "BOTTLEROCKET_x86_64"
+      min_size       = 1
       max_size       = 10
-      desired_size   = 2
+      desired_size   = 1
       labels         = { role = "general" }
     }
   }
@@ -94,13 +98,14 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | `cluster_name` | EKS cluster name. | `string` | n/a | yes |
-| `cluster_version` | Kubernetes version. | `string` | `"1.30"` | no |
+| `cluster_version` | Kubernetes version. | `string` | `"1.34"` | no |
 | `vpc_id` | VPC ID for the cluster. | `string` | n/a | yes |
 | `subnet_ids` | Subnet IDs for nodes + control plane ENIs (POC: public, prod: private). | `list(string)` | n/a | yes |
 | `allowed_cidrs` | CIDRs allowed to reach the public EKS API endpoint. `0.0.0.0/0` is rejected. | `list(string)` | n/a | yes |
 | `operator_principal_arn` | IAM principal granted cluster-admin via access entry. | `string` | n/a | yes |
-| `jenkins_role_arn` | Jenkins IRSA role granted Edit on the namespaces in `var.jenkins_access_namespaces`. Empty -> jenkins access entry omitted (phase 1). | `string` | `""` | no |
+| `jenkins_role_arn` | Jenkins IAM role granted Edit on the namespaces in `var.jenkins_access_namespaces`. Empty -> jenkins access entry omitted. | `string` | `""` | no |
 | `jenkins_access_namespaces` | Kubernetes namespaces granted Edit access for `var.jenkins_role_arn`. | `list(string)` | `["weather-staging", "weather-prod"]` | no |
+| `pod_identity_associations` | Map of EKS Pod Identity associations to create on this cluster (key = arbitrary id; value = `{ namespace, service_account, role_arn }`). Typically fed from `module.iam.pod_identity_role_bindings`. | `map(object({namespace=string, service_account=string, role_arn=string}))` | `{}` | no |
 | `eks_managed_node_groups` | Map of EKS managed node group definitions, keyed by group name. Passed through to the upstream `eks_managed_node_groups` input. | `map(object)` | single `general` group | no |
 | `eks_managed_node_group_defaults` | Defaults applied to every managed node group; per-group overrides win. | `any` | `{ attach_cluster_primary_security_group = false }` | no |
 | `cluster_addons` | Map of EKS add-ons to enable. Passed through to the upstream `cluster_addons` input. | `any` | CoreDNS / kube-proxy / VPC CNI / Pod Identity Agent | no |

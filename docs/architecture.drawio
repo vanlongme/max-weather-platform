@@ -1,140 +1,216 @@
 <mxfile host="app.diagrams.net" modified="2026-05-10T00:00:00.000Z" agent="sisyphus" version="24.0.0">
   <diagram id="max-weather-arch" name="Max Weather AWS Architecture (POC)">
-    <mxGraphModel dx="2400" dy="1700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1750" math="0" shadow="0">
+    <mxGraphModel dx="2400" dy="1700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="1900" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
 
-        <mxCell id="title" value="Max Weather — AWS POC Architecture (single env: poc, public-subnet topology)" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fillColor=#232F3E;fontColor=#FFFFFF;strokeColor=#232F3E;" vertex="1" parent="1">
-          <mxGeometry x="40" y="20" width="2320" height="50" as="geometry"/>
+        <mxCell id="title" value="Max Weather — AWS POC Architecture (single env: poc, public-subnet topology, EKS 1.30, terraform-aws-modules/eks v21 + Pod Identity)" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;fillColor=#232F3E;fontColor=#FFFFFF;strokeColor=#232F3E;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="2520" height="50" as="geometry"/>
         </mxCell>
 
-        <mxCell id="poc_warning" value="POC TRADE-OFF — public subnets only. Worker nodes have public IPs (egress via IGW, no NAT GW, no VPC endpoints). For production: switch to private subnets + NAT GW (or Interface VPC endpoints for ECR/Logs/STS) and flip ingress-nginx Service annotation back to internal. Subnets carry both kubernetes.io/role/elb and kubernetes.io/role/internal-elb tags so the prod overlay can flip without re-tagging." style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontStyle=1;fillColor=#FFF4CE;strokeColor=#D79B00;fontColor=#7A4A00;" vertex="1" parent="1">
-          <mxGeometry x="40" y="80" width="2320" height="60" as="geometry"/>
+        <mxCell id="poc_warning" value="POC TRADE-OFF — public subnets only. Worker nodes get public IPs (egress via IGW, no NAT GW, no VPC endpoints). For production: switch to private subnets + NAT GW (or Interface VPC endpoints for ECR/Logs/STS) and flip ingress-nginx Service annotation back to internal. Subnets carry both kubernetes.io/role/elb and kubernetes.io/role/internal-elb tags so the prod overlay can flip without re-tagging." style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontStyle=1;fillColor=#FFF4CE;strokeColor=#D79B00;fontColor=#7A4A00;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="2520" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="client" value="Client&#10;(Postman / curl)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8E8E8;strokeColor=#666666;fontSize=13;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="60" y="170" width="160" height="80" as="geometry"/>
+        <mxCell id="client" value="Client&#10;(Postman / curl)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3E;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.user;" vertex="1" parent="1">
+          <mxGeometry x="60" y="180" width="78" height="78" as="geometry"/>
         </mxCell>
 
-        <mxCell id="cognito" value="Amazon Cognito&#10;User Pool&#10;(client_credentials, scope: weather-api/read)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DD344C;strokeColor=#7B0000;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="280" y="170" width="220" height="80" as="geometry"/>
+        <mxCell id="cognito" value="Amazon Cognito User Pool&#10;(client_credentials, scope: weather-api/read)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" vertex="1" parent="1">
+          <mxGeometry x="280" y="180" width="78" height="78" as="geometry"/>
         </mxCell>
 
-        <mxCell id="apigw" value="Amazon API Gateway (HTTP API)&#10;Stage: $default • VPC Link → NLB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C4FFF;strokeColor=#3B1F7A;fontColor=#FFFFFF;fontSize=13;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="560" y="170" width="380" height="80" as="geometry"/>
+        <mxCell id="apigw" value="Amazon API Gateway (HTTP API)&#10;Stage: $default • VPC Link → NLB" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" vertex="1" parent="1">
+          <mxGeometry x="560" y="180" width="78" height="78" as="geometry"/>
         </mxCell>
 
-        <mxCell id="authorizer" value="Lambda Authorizer&#10;(REQUEST type, validates Cognito JWT)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;strokeColor=#7A4A00;fontColor=#000000;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="980" y="170" width="240" height="80" as="geometry"/>
+        <mxCell id="authorizer" value="AWS Lambda — Authorizer&#10;(REQUEST type, validates Cognito JWT)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="800" y="180" width="78" height="78" as="geometry"/>
         </mxCell>
 
-        <mxCell id="vpc" value="AWS VPC — 10.20.0.0/16 (us-east-1, 3 AZs) — POC: PUBLIC SUBNETS ONLY" style="swimlane;startSize=34;html=1;whiteSpace=wrap;fillColor=#E6D9FF;strokeColor=#8C4FFF;fontColor=#3B1F7A;fontSize=14;fontStyle=1;align=center;verticalAlign=top;" vertex="1" parent="1">
-          <mxGeometry x="40" y="290" width="1500" height="940" as="geometry"/>
+        <mxCell id="vpc" value="AWS VPC — 10.20.0.0/16 (us-east-1, 3 AZs) — POC: PUBLIC SUBNETS ONLY" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc;strokeColor=#248814;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="1640" height="1080" as="geometry"/>
         </mxCell>
 
-        <mxCell id="igw" value="Internet Gateway&#10;(default route 0.0.0.0/0 for all public subnets — no NAT GW)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C4FFF;strokeColor=#3B1F7A;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="vpc">
-          <mxGeometry x="20" y="50" width="1460" height="60" as="geometry"/>
+        <mxCell id="igw" value="Internet Gateway&#10;(default route 0.0.0.0/0 — no NAT GW)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet_gateway;" vertex="1" parent="vpc">
+          <mxGeometry x="40" y="60" width="78" height="78" as="geometry"/>
         </mxCell>
 
-        <mxCell id="pub" value="Public Subnets — 3 AZs (10.20.1.0/24, 10.20.2.0/24, 10.20.3.0/24) — tags: kubernetes.io/role/elb=1, kubernetes.io/role/internal-elb=1, kubernetes.io/cluster/max-weather=shared, karpenter.sh/discovery=max-weather" style="swimlane;startSize=44;html=1;whiteSpace=wrap;fillColor=#F4ECFF;strokeColor=#8C4FFF;fontColor=#3B1F7A;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="vpc">
-          <mxGeometry x="20" y="130" width="1460" height="780" as="geometry"/>
+        <mxCell id="igw_label" value="IGW — default route 0.0.0.0/0 for all public subnets (no NAT GW, no VPC endpoints)" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontStyle=2;fontColor=#232F3E;" vertex="1" parent="vpc">
+          <mxGeometry x="140" y="80" width="800" height="40" as="geometry"/>
         </mxCell>
 
-        <mxCell id="nlb" value="NLB&#10;(Network Load Balancer)&#10;internet-facing, created by AWS LB Controller via NGINX Ingress Service" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8C4FFF;strokeColor=#3B1F7A;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="pub">
-          <mxGeometry x="40" y="60" width="320" height="120" as="geometry"/>
+        <mxCell id="pub" value="Public Subnets — 3 AZs (10.20.1.0/24, 10.20.2.0/24, 10.20.3.0/24) — tags: kubernetes.io/role/elb=1, kubernetes.io/role/internal-elb=1, kubernetes.io/cluster/max-weather=shared, karpenter.sh/discovery=max-weather" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_security_group;strokeColor=#147EBA;fillColor=#E1F0F8;verticalAlign=top;align=left;spacingLeft=30;fontColor=#147EBA;dashed=0;" vertex="1" parent="vpc">
+          <mxGeometry x="40" y="160" width="1560" height="900" as="geometry"/>
         </mxCell>
 
-        <mxCell id="jenkins" value="Jenkins EC2 (t3.medium)&#10;public IP + Elastic IP&#10;SG: SSH/HTTPS IP-restricted to allowed_cidrs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;strokeColor=#7A4A00;fontColor=#000000;fontSize=12;fontStyle=1;" vertex="1" parent="pub">
-          <mxGeometry x="900" y="60" width="320" height="120" as="geometry"/>
+        <mxCell id="nlb" value="NLB&#10;(internet-facing, created via NGINX Ingress Service)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.network_load_balancer;" vertex="pub" parent="pub">
+          <mxGeometry x="60" y="60" width="78" height="78" as="geometry"/>
         </mxCell>
 
-        <mxCell id="eks" value="Amazon EKS Cluster (max-weather, v1.30) — control plane (managed; public endpoint locked to allowed_cidrs)" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#FFE9D1;strokeColor=#FF9900;fontColor=#7A4A00;fontSize=13;fontStyle=1;align=center;" vertex="1" parent="pub">
-          <mxGeometry x="20" y="220" width="1420" height="540" as="geometry"/>
+        <mxCell id="jenkins" value="Jenkins on EKS&#10;(jenkinsci/jenkins helm chart, 8Gi gp3 PVC, EKS Pod Identity)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=pod;" vertex="1" parent="pub">
+          <mxGeometry x="1300" y="60" width="68" height="68" as="geometry"/>
         </mxCell>
 
-        <mxCell id="nodegroup" value="Managed Node Group: general (label role=general)&#10;t3.medium, ON_DEMAND, AL2023, 2–10 nodes (Cluster Autoscaler) — workers run in PUBLIC subnets, public IPs assigned&#10;Hosts kube-system, ingress-nginx, and the Karpenter controller pod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC99;strokeColor=#7A4A00;fontColor=#000000;fontSize=12;fontStyle=1;" vertex="1" parent="eks">
-          <mxGeometry x="20" y="50" width="680" height="100" as="geometry"/>
+        <mxCell id="eks" value="Amazon EKS Cluster (max-weather, v1.30) — control plane (managed; public endpoint locked to allowed_cidrs)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=13;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_account;strokeColor=#FF9900;fillColor=#FFF4E1;verticalAlign=top;align=left;spacingLeft=30;fontColor=#7A4A00;dashed=0;" vertex="1" parent="pub">
+          <mxGeometry x="40" y="200" width="1480" height="660" as="geometry"/>
         </mxCell>
 
-        <mxCell id="karpnodes" value="Karpenter NodePool: default&#10;Provisions on-demand nodes via EC2NodeClass (subnet/SG selectors: karpenter.sh/discovery=max-weather)&#10;Taint: karpenter.sh/provisioned=true:NoSchedule" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC99;strokeColor=#7A4A00;fontColor=#000000;fontSize=12;fontStyle=1;dashed=1;" vertex="1" parent="eks">
-          <mxGeometry x="720" y="50" width="680" height="100" as="geometry"/>
+        <mxCell id="eks_icon" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_kubernetes_service;" vertex="1" parent="eks">
+          <mxGeometry x="20" y="34" width="48" height="48" as="geometry"/>
         </mxCell>
 
-        <mxCell id="ns_staging" value="Namespace: weather-staging" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#FF9900;fontColor=#7A4A00;fontSize=12;fontStyle=1;dashed=1;" vertex="1" parent="eks">
-          <mxGeometry x="20" y="170" width="680" height="350" as="geometry"/>
+        <mxCell id="nodegroup" value="Managed Node Group: general (label role=general)&#10;t3.medium, ON_DEMAND, AL2023, 2-10 nodes (Cluster Autoscaler) — workers in PUBLIC subnets, public IPs assigned&#10;Hosts kube-system, ingress-nginx, and the Karpenter controller pod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC99;strokeColor=#7A4A00;fontColor=#000000;fontSize=12;fontStyle=1;" vertex="1" parent="eks">
+          <mxGeometry x="20" y="100" width="700" height="100" as="geometry"/>
         </mxCell>
 
-        <mxCell id="nginx" value="NGINX Ingress Controller&#10;(Helm 4.11.3, Service type=LoadBalancer → internet-facing NLB)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="ns_staging">
-          <mxGeometry x="20" y="40" width="640" height="60" as="geometry"/>
+        <mxCell id="ec2_icon_ng" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" vertex="1" parent="eks">
+          <mxGeometry x="650" y="115" width="50" height="50" as="geometry"/>
         </mxCell>
 
-        <mxCell id="svc_s" value="Service: weather-api&#10;(ClusterIP, port 80 → 8080)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="ns_staging">
-          <mxGeometry x="20" y="120" width="640" height="60" as="geometry"/>
+        <mxCell id="karpnodes" value="Karpenter NodePool: default&#10;Provisions on-demand nodes via EC2NodeClass (subnet/SG selectors: karpenter.sh/discovery=max-weather)&#10;Pod Identity association (no SA annotation) • Taint: karpenter.sh/provisioned=true:NoSchedule" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCC99;strokeColor=#7A4A00;fontColor=#000000;fontSize=12;fontStyle=1;dashed=1;" vertex="1" parent="eks">
+          <mxGeometry x="740" y="100" width="720" height="100" as="geometry"/>
         </mxCell>
 
-        <mxCell id="deploy_s" value="Deployment: weather-api (Node.js Express)&#10;Pods (replicas via HPA 2–10) — calls Open-Meteo via IGW egress" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="ns_staging">
-          <mxGeometry x="20" y="200" width="400" height="80" as="geometry"/>
+        <mxCell id="ec2_icon_k" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" vertex="1" parent="eks">
+          <mxGeometry x="1390" y="115" width="50" height="50" as="geometry"/>
         </mxCell>
 
-        <mxCell id="hpa_s" value="HPA&#10;target CPU 70%&#10;min 2 / max 10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="ns_staging">
-          <mxGeometry x="440" y="200" width="220" height="80" as="geometry"/>
+        <mxCell id="ns_staging" value="Namespace: weather-staging" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_account;strokeColor=#326CE5;fillColor=#EEF3FB;verticalAlign=top;align=left;spacingLeft=30;fontColor=#326CE5;dashed=1;" vertex="1" parent="eks">
+          <mxGeometry x="20" y="220" width="700" height="420" as="geometry"/>
         </mxCell>
 
-        <mxCell id="ns_prod" value="Namespace: weather-prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#FF9900;fontColor=#7A4A00;fontSize=12;fontStyle=1;dashed=1;" vertex="1" parent="eks">
-          <mxGeometry x="720" y="170" width="680" height="350" as="geometry"/>
+        <mxCell id="ns_staging_icon" value="" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=ns;" vertex="1" parent="ns_staging">
+          <mxGeometry x="20" y="34" width="40" height="40" as="geometry"/>
         </mxCell>
 
-        <mxCell id="nginx_p_note" value="Same NGINX Ingress Controller serves both namespaces&#10;(routes by host/path)" style="text;html=1;align=center;fontSize=11;fontStyle=2;fontColor=#666666;" vertex="1" parent="ns_prod">
-          <mxGeometry x="20" y="40" width="640" height="60" as="geometry"/>
+        <mxCell id="nginx" value="NGINX Ingress&#10;Helm 4.11.3 — Service type=LoadBalancer (NLB)" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=ing;" vertex="1" parent="ns_staging">
+          <mxGeometry x="40" y="90" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="svc_p" value="Service: weather-api&#10;(ClusterIP, port 80 → 8080)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=12;fontStyle=1;" vertex="1" parent="ns_prod">
-          <mxGeometry x="20" y="120" width="640" height="60" as="geometry"/>
+        <mxCell id="nginx_label" value="ingress-nginx Controller (Helm 4.11.3)&#10;Service type=LoadBalancer → internet-facing NLB" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ns_staging">
+          <mxGeometry x="120" y="90" width="500" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="deploy_p" value="Deployment: weather-api (Node.js Express)&#10;Pods (replicas via HPA 3–10) — calls Open-Meteo via IGW egress" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="ns_prod">
-          <mxGeometry x="20" y="200" width="400" height="80" as="geometry"/>
+        <mxCell id="svc_s" value="Service: weather-api&#10;ClusterIP 80→8080" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=svc;" vertex="1" parent="ns_staging">
+          <mxGeometry x="40" y="180" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="hpa_p" value="HPA&#10;target CPU 70%&#10;min 3 / max 10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="ns_prod">
-          <mxGeometry x="440" y="200" width="220" height="80" as="geometry"/>
+        <mxCell id="svc_s_label" value="Service: weather-api&#10;ClusterIP, port 80 → 8080" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ns_staging">
+          <mxGeometry x="120" y="180" width="500" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="ext_services" value="AWS Managed Services (regional)" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontColor=#7A4A00;fontSize=13;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="1580" y="290" width="780" height="940" as="geometry"/>
+        <mxCell id="deploy_s" value="Deployment&#10;weather-api (Node)" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=deploy;" vertex="1" parent="ns_staging">
+          <mxGeometry x="40" y="280" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="ecr" value="Amazon ECR&#10;Repos: max-weather-api, max-weather-lambda-authorizer&#10;Scan-on-push, lifecycle: keep 10 tagged, expire untagged > 7d" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;strokeColor=#7A4A00;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="50" width="740" height="80" as="geometry"/>
+        <mxCell id="deploy_s_label" value="Deployment: weather-api (Node.js Express)&#10;Pods (replicas via HPA 2-10) — calls Open-Meteo via IGW egress" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ns_staging">
+          <mxGeometry x="120" y="280" width="380" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="cw" value="Amazon CloudWatch&#10;Log Groups: /aws/eks/max-weather/{cluster,application,host}, /aws/lambda/max-weather-authorizer, /aws/apigateway/max-weather-api&#10;Container Insights metrics drive HPA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9900;strokeColor=#7A4A00;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="150" width="740" height="100" as="geometry"/>
+        <mxCell id="hpa_s" value="HPA&#10;CPU 70% • 2-10" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=hpa;" vertex="1" parent="ns_staging">
+          <mxGeometry x="540" y="280" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="sm" value="AWS Secrets Manager&#10;/max-weather/cognito/client-secret, /max-weather/app/config&#10;Mounted into pods via External Secrets Operator (IRSA)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DD344C;strokeColor=#7B0000;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="270" width="740" height="80" as="geometry"/>
+        <mxCell id="ns_prod" value="Namespace: weather-prod" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_account;strokeColor=#326CE5;fillColor=#EEF3FB;verticalAlign=top;align=left;spacingLeft=30;fontColor=#326CE5;dashed=1;" vertex="1" parent="eks">
+          <mxGeometry x="740" y="220" width="720" height="420" as="geometry"/>
         </mxCell>
 
-        <mxCell id="iam" value="IAM (IRSA roles)&#10;cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets, karpenter-controller, karpenter-node&#10;Jenkins EC2 instance profile (ECR push, EKS describe, Lambda deploy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3F8624;strokeColor=#1B5524;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="370" width="740" height="100" as="geometry"/>
+        <mxCell id="ns_prod_icon" value="" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=ns;" vertex="1" parent="ns_prod">
+          <mxGeometry x="20" y="34" width="40" height="40" as="geometry"/>
         </mxCell>
 
-        <mxCell id="sqs" value="Karpenter SQS queue + EventBridge rules&#10;(EC2 spot interruption / health events → Karpenter controller drains nodes)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DD344C;strokeColor=#7B0000;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="490" width="740" height="80" as="geometry"/>
+        <mxCell id="nginx_p_note" value="Same NGINX Ingress Controller serves both namespaces (host/path routing)" style="text;html=1;align=center;fontSize=11;fontStyle=2;fontColor=#666666;" vertex="1" parent="ns_prod">
+          <mxGeometry x="40" y="90" width="640" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="openmeteo" value="Open-Meteo API (3rd party, public Internet)&#10;Pods reach it via Internet Gateway (no NAT GW in POC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8E8E8;strokeColor=#666666;fontSize=12;fontStyle=1;dashed=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="610" width="740" height="80" as="geometry"/>
+        <mxCell id="svc_p" value="Service: weather-api&#10;ClusterIP 80→8080" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=svc;" vertex="1" parent="ns_prod">
+          <mxGeometry x="40" y="180" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="cicd_box" value="CI/CD: Jenkins Declarative Pipeline (Jenkinsfile)&#10;Stages: checkout → unit tests → docker build → ECR push → kubectl apply (kustomize) → smoke tests&#10;Triggered manually from Jenkins UI; ECR push uses IRSA via instance profile" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="730" width="740" height="100" as="geometry"/>
+        <mxCell id="svc_p_label" value="Service: weather-api&#10;ClusterIP, port 80 → 8080" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ns_prod">
+          <mxGeometry x="120" y="180" width="500" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="state_backend" value="Terraform Remote State&#10;S3 bucket (versioned, encrypted) + DynamoDB lock table&#10;Created by infra/bootstrap/, consumed by infra/envs/poc/backend.tf (key: envs/poc/terraform.tfstate)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3F8624;strokeColor=#1B5524;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" vertex="1" parent="ext_services">
-          <mxGeometry x="20" y="850" width="740" height="80" as="geometry"/>
+        <mxCell id="deploy_p" value="Deployment&#10;weather-api (Node)" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=deploy;" vertex="1" parent="ns_prod">
+          <mxGeometry x="40" y="280" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="deploy_p_label" value="Deployment: weather-api (Node.js Express)&#10;Pods (replicas via HPA 3-10) — calls Open-Meteo via IGW egress" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ns_prod">
+          <mxGeometry x="120" y="280" width="380" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="hpa_p" value="HPA&#10;CPU 70% • 3-10" style="sketch=0;outlineConnect=0;fontColor=#326CE5;gradientColor=none;fillColor=#FFFFFF;strokeColor=#326CE5;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.kubernetes.icon;prIcon=hpa;" vertex="1" parent="ns_prod">
+          <mxGeometry x="540" y="280" width="60" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ext_services" value="AWS Managed Services (regional, us-east-1)" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_region;strokeColor=#147EBA;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1720" y="320" width="840" height="1080" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ecr" value="Amazon ECR&#10;Repos: max-weather-api, max-weather-lambda-authorizer&#10;Scan-on-push, lifecycle: keep 10 tagged, expire untagged > 7d" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_container_registry;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="80" width="78" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="ecr_label" value="Amazon ECR&#10;Repos: max-weather-api, max-weather-lambda-authorizer&#10;Scan-on-push • Lifecycle: keep 10 tagged, expire untagged > 7d" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="80" width="640" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cw" value="CloudWatch" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="200" width="78" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cw_label" value="Amazon CloudWatch&#10;Log Groups: /aws/eks/max-weather/{cluster,application,host}, /aws/lambda/max-weather-authorizer, /aws/apigateway/max-weather-api&#10;Container Insights metrics drive HPA" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="200" width="640" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sm" value="Secrets Manager" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="320" width="78" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sm_label" value="AWS Secrets Manager&#10;/max-weather/cognito/client-secret, /max-weather/app/config&#10;Synced into pods by External Secrets Operator (EKS Pod Identity)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="320" width="640" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="iam" value="IAM" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management_iam;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="440" width="78" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="iam_label" value="AWS IAM (EKS Pod Identity)&#10;Pod Identity bindings: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets, karpenter-controller&#10;Plus karpenter-node IAM role + EC2 instance profile (assumed by Karpenter-provisioned EC2)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="440" width="640" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sqs" value="SQS" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.simple_queue_service;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="560" width="78" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="sqs_label" value="Karpenter SQS queue + EventBridge rules&#10;EC2 spot interruption / health events → Karpenter controller drains nodes gracefully" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="560" width="640" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="openmeteo" value="Open-Meteo&#10;(public Internet)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#666666;dashed=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="680" width="78" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="openmeteo_label" value="Open-Meteo API (3rd party, public Internet)&#10;Pods reach it via Internet Gateway (no NAT GW in POC)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;fontStyle=2;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="680" width="640" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cicd_box" value="CI/CD: Jenkins Declarative Pipeline (app/Jenkinsfile)&#10;Stages: checkout → tests → apko base image (Chainguard) → docker build → ECR push → kubectl apply (kustomize) → smoke&#10;Triggered manually; ECR push uses EKS Pod Identity (jenkins ServiceAccount)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;fontStyle=1;" vertex="1" parent="ext_services">
+          <mxGeometry x="40" y="800" width="760" height="100" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="state_s3" value="S3 (versioned, encrypted)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.simple_storage_service;" vertex="1" parent="ext_services">
+          <mxGeometry x="60" y="920" width="68" height="68" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="state_ddb" value="DynamoDB (lock table)" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#232F3E;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=1;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" vertex="1" parent="ext_services">
+          <mxGeometry x="160" y="920" width="68" height="68" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="state_label" value="Terraform Remote State — created by infra/bootstrap/, consumed by infra/envs/poc/backend.tf (key: envs/poc/terraform.tfstate)" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#232F3E;" vertex="1" parent="ext_services">
+          <mxGeometry x="240" y="920" width="560" height="68" as="geometry"/>
         </mxCell>
 
         <mxCell id="e_client_cognito" value="1. POST /oauth2/token (client_credentials)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=11;" edge="1" source="client" target="cognito" parent="1">
@@ -195,8 +271,8 @@
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <mxCell id="legend" value="Legend&#10;─── Synchronous request flow (numbered 1-7)&#10;- - - Asynchronous / out-of-band traffic&#10;Yellow callout = POC trade-off vs production&#10;Single env: infra/envs/poc/ — hosts both weather-staging and weather-prod namespaces in one EKS cluster" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=#FFFFFF;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1260" width="2320" height="80" as="geometry"/>
+        <mxCell id="legend" value="Legend&#10;─── Synchronous request flow (numbered 1-7)&#10;- - - Asynchronous / out-of-band traffic (logs, metrics, JWKS, image pulls, EC2 interruption events, External Secrets sync)&#10;Yellow callout = POC trade-off vs production&#10;Orange icons / containers = AWS managed services • Blue icons / dashed namespaces = Kubernetes objects (k8s icon pack)&#10;Single env: infra/envs/poc/ — hosts both weather-staging and weather-prod namespaces in one EKS cluster" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=#FFFFFF;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1430" width="2520" height="120" as="geometry"/>
         </mxCell>
 
       </root>

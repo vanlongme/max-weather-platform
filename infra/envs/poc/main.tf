@@ -42,6 +42,18 @@ module "secrets" {
   tags         = local.common_tags
 }
 
+module "iam" {
+  source = "../../modules/iam"
+
+  cluster_name       = var.cluster_name
+  aws_region         = var.aws_region
+  aws_account_id     = data.aws_caller_identity.current.account_id
+  service_roles      = var.iam_service_roles
+  irsa_roles         = var.iam_irsa_roles
+  pod_identity_roles = var.pod_identity_roles
+  tags               = local.common_tags
+}
+
 module "eks" {
   source = "../../modules/eks"
 
@@ -57,20 +69,9 @@ module "eks" {
   eks_managed_node_group_defaults = var.eks_managed_node_group_defaults
   cluster_addons                  = var.cluster_addons
   access_entries                  = var.eks_access_entries
+  pod_identity_associations       = module.iam.pod_identity_role_bindings
 
   tags = local.common_tags
 
   depends_on = [module.cloudwatch, module.networking]
-}
-
-module "iam" {
-  source = "../../modules/iam"
-
-  cluster_name      = var.cluster_name
-  aws_region        = var.aws_region
-  aws_account_id    = data.aws_caller_identity.current.account_id
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  oidc_provider_url = module.eks.oidc_provider_url
-  irsa_roles        = var.irsa_roles
-  tags              = local.common_tags
 }

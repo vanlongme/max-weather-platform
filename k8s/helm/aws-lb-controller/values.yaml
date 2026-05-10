@@ -2,10 +2,12 @@
 # Chart: https://aws.github.io/eks-charts (aws-load-balancer-controller 1.8.2)
 # Namespace: kube-system
 # Templated values (must be substituted by install script):
-#   ${CLUSTER_NAME}                - EKS cluster name
-#   ${AWS_REGION}                  - AWS region
-#   ${VPC_ID}                      - VPC ID (terraform output: vpc_id)
-#   ${AWS_LB_CONTROLLER_ROLE_ARN}  - IRSA role ARN (terraform output: aws_lb_controller_role_arn)
+#   ${CLUSTER_NAME}  - EKS cluster name
+#   ${AWS_REGION}    - AWS region
+#   ${VPC_ID}        - VPC ID (terraform output: vpc_id)
+#
+# IAM: bound via EKS Pod Identity (namespace=kube-system, sa=aws-load-balancer-controller).
+# Association created by infra/modules/eks; no SA annotation required.
 clusterName: ${CLUSTER_NAME}
 region: ${AWS_REGION}
 vpcId: ${VPC_ID}
@@ -13,5 +15,3 @@ replicaCount: 2
 serviceAccount:
   create: true
   name: aws-load-balancer-controller
-  annotations:
-    eks.amazonaws.com/role-arn: ${AWS_LB_CONTROLLER_ROLE_ARN}

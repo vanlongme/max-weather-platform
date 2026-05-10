@@ -1,36 +1,57 @@
 variable "cluster_name" {
-  description = "EKS cluster name, used for role naming and policies."
-  type        = string
-}
-
-variable "oidc_provider_arn" {
-  description = "ARN of the EKS OIDC provider for IRSA trust relationships. Sourced from the eks module."
-  type        = string
-}
-
-variable "oidc_provider_url" {
-  description = "URL of the EKS OIDC provider (without https:// prefix). Sourced from the eks module."
+  description = "EKS cluster name, used for role naming and policy ARN templating."
   type        = string
 }
 
 variable "aws_region" {
-  description = "AWS region used for ARN construction in policies."
+  description = "AWS region used for ARN construction in policies (substitutes __AWS_REGION__)."
   type        = string
 }
 
 variable "aws_account_id" {
-  description = "AWS account ID for policy ARN construction."
+  description = "AWS account ID for policy ARN construction (substitutes __AWS_ACCOUNT_ID__)."
   type        = string
 }
 
 variable "tags" {
-  description = "Common tags to apply to all resources."
+  description = "Common tags to apply to all roles."
   type        = map(string)
   default     = {}
 }
 
+###############################################################################
+# Role-type maps — pick whichever you need; unused types stay empty.
+#
+# Each role type owns its own assume-role policy shape. Inline policy JSON is
+# templated with __AWS_PARTITION__ / __AWS_REGION__ / __AWS_ACCOUNT_ID__ /
+# __CLUSTER_NAME__ placeholders. Defaults for pod_identity_roles live in
+# locals.tf (Terraform forbids jsonencode() in variable defaults).
+###############################################################################
+
+variable "service_roles" {
+  description = "Map of AWS service-principal IAM roles (EC2, Lambda, ECS task, etc.). Keyed by short name. service_principals lists the AWS service principals the role can be assumed by (e.g. [\"lambda.amazonaws.com\"]). policy_json is the inline policy; managed_policy_arns attaches AWS-managed policies. Empty by default."
+  type = map(object({
+    service_principals  = list(string)
+    policy_json         = optional(string)
+    managed_policy_arns = optional(list(string), [])
+    role_name_suffix    = optional(string)
+  }))
+  default = {}
+}
+
 variable "irsa_roles" {
-  description = "Map of IRSA roles to create. Keyed by short name; each value defines the ServiceAccount binding and inline policy. When null (default), the module's built-in defaults are used: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. All entries are skipped when oidc_provider_arn is empty (phase 1). Policy JSON may use the placeholders __AWS_PARTITION__, __AWS_REGION__, __AWS_ACCOUNT_ID__, __CLUSTER_NAME__."
+  description = "Map of IAM Roles for Service Accounts (OIDC web-identity trust). Empty by default. Requires var.oidc_provider_arn + var.oidc_provider_url to be non-empty; entries are skipped otherwise. Prefer pod_identity_roles for new workloads on EKS 1.30+."
+  type = map(object({
+    namespace        = string
+    service_account  = string
+    policy_json      = string
+    role_name_suffix = optional(string)
+  }))
+  default = {}
+}
+
+variable "pod_identity_roles" {
+  description = "Map of EKS Pod Identity roles (pods.eks.amazonaws.com trust). When null, the module ships the five built-in workload roles: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. Override (replaces defaults entirely — re-declare any built-ins to keep). The module creates roles + inline policies only; Pod Identity associations are created by the eks module via the role_bindings output."
   type = map(object({
     namespace        = string
     service_account  = string
@@ -40,8 +61,29 @@ variable "irsa_roles" {
   default = null
 }
 
+###############################################################################
+# IRSA-only inputs — required only when irsa_roles is non-empty.
+###############################################################################
+
+variable "oidc_provider_arn" {
+  description = "ARN of the EKS OIDC provider for IRSA trust relationships. Required when irsa_roles is non-empty. Sourced from the eks module."
+  type        = string
+  default     = ""
+}
+
+variable "oidc_provider_url" {
+  description = "URL of the EKS OIDC provider (without https:// prefix). Required when irsa_roles is non-empty. Sourced from the eks module."
+  type        = string
+  default     = ""
+}
+
+###############################################################################
+# Templating + literal customization knobs (kept variable for the same reasons
+# the prior single-type module did: every literal is overridable).
+###############################################################################
+
 variable "inline_policy_name_suffix" {
-  description = "Suffix appended to each IRSA role's map key to form the inline aws_iam_role_policy name."
+  description = "Suffix appended to each role's map key to form the inline aws_iam_role_policy name."
   type        = string
   default     = "-policy"
 }
@@ -70,6 +112,7 @@ variable "cluster_name_placeholder" {
   default     = "__CLUSTER_NAME__"
 }
 
+# IRSA assume-role literals
 variable "irsa_assume_role_effect" {
   description = "Effect on the IRSA assume-role policy statement."
   type        = string
@@ -107,7 +150,7 @@ variable "irsa_assume_role_aud_suffix" {
 }
 
 variable "irsa_assume_role_subject_prefix" {
-  description = "Prefix for the OIDC :sub claim value identifying a Kubernetes ServiceAccount (Kubernetes-defined; followed by <namespace>:<service_account>)."
+  description = "Prefix for the OIDC :sub claim value identifying a Kubernetes ServiceAccount."
   type        = string
   default     = "system:serviceaccount:"
 }
@@ -116,4 +159,48 @@ variable "irsa_assume_role_audience" {
   description = "Required value of the OIDC :aud claim for the EKS IRSA trust relationship."
   type        = string
   default     = "sts.amazonaws.com"
+}
+
+# Pod Identity assume-role literals
+variable "pod_identity_assume_role_effect" {
+  description = "Effect on the Pod Identity assume-role policy statement."
+  type        = string
+  default     = "Allow"
+}
+
+variable "pod_identity_assume_role_actions" {
+  description = "Actions on the Pod Identity assume-role policy statement. Pod Identity requires both sts:AssumeRole (to assume) and sts:TagSession (to tag the session with EKS context)."
+  type        = list(string)
+  default     = ["sts:AssumeRole", "sts:TagSession"]
+}
+
+variable "pod_identity_assume_role_principal_type" {
+  description = "Principal type on the Pod Identity assume-role policy statement."
+  type        = string
+  default     = "Service"
+}
+
+variable "pod_identity_assume_role_principal_service" {
+  description = "Service principal that EKS Pod Identity uses to assume workload roles."
+  type        = string
+  default     = "pods.eks.amazonaws.com"
+}
+
+# Service-role assume-role literals
+variable "service_role_assume_effect" {
+  description = "Effect on the service-role assume-role policy statement."
+  type        = string
+  default     = "Allow"
+}
+
+variable "service_role_assume_actions" {
+  description = "Actions on the service-role assume-role policy statement."
+  type        = list(string)
+  default     = ["sts:AssumeRole"]
+}
+
+variable "service_role_assume_principal_type" {
+  description = "Principal type on the service-role assume-role policy statement."
+  type        = string
+  default     = "Service"
 }

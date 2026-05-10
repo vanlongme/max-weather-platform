@@ -6,7 +6,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "Kubernetes version for the EKS cluster."
   type        = string
-  default     = "1.30"
+  default     = "1.34"
 }
 
 variable "vpc_id" {
@@ -47,15 +47,15 @@ variable "jenkins_access_namespaces" {
 }
 
 variable "eks_managed_node_groups" {
-  description = "Map of EKS managed node group definitions, keyed by node group name. Each entry is passed through to the upstream eks_managed_node_groups input."
+  description = "Map of EKS managed node group definitions, keyed by node group name. Each entry is passed through to the upstream eks_managed_node_groups input. Default AMI is Bottlerocket; default group is a single t3.medium init worker (Karpenter handles workload scale-out)."
   type = map(object({
     name           = optional(string)
     instance_types = optional(list(string), ["t3.medium"])
-    min_size       = optional(number, 2)
+    min_size       = optional(number, 1)
     max_size       = optional(number, 10)
-    desired_size   = optional(number, 2)
+    desired_size   = optional(number, 1)
     capacity_type  = optional(string, "ON_DEMAND")
-    ami_type       = optional(string, "AL2023_x86_64_STANDARD")
+    ami_type       = optional(string, "BOTTLEROCKET_x86_64")
     disk_size      = optional(number, 20)
     labels         = optional(map(string), {})
     taints         = optional(map(object({ key = string, value = optional(string), effect = string })), {})
@@ -64,9 +64,10 @@ variable "eks_managed_node_groups" {
   default = {
     general = {
       instance_types = ["t3.medium"]
-      min_size       = 2
+      ami_type       = "BOTTLEROCKET_x86_64"
+      min_size       = 1
       max_size       = 10
-      desired_size   = 2
+      desired_size   = 1
       labels         = { role = "general" }
     }
   }
@@ -305,5 +306,15 @@ variable "karpenter_node_additional_policies" {
   default = {
     AmazonSSMManagedInstanceCore = "arn:__AWS_PARTITION__:iam::aws:policy/AmazonSSMManagedInstanceCore"
   }
+}
+
+variable "pod_identity_associations" {
+  description = "Map of EKS Pod Identity associations to create against this cluster. Keyed by short name (typically the IAM role's map key in the iam module). Each entry binds a Kubernetes ServiceAccount (namespace + service_account) to an IAM role ARN. Feed module.iam.pod_identity_role_bindings straight in."
+  type = map(object({
+    namespace       = string
+    service_account = string
+    role_arn        = string
+  }))
+  default = {}
 }
 

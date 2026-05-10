@@ -4,9 +4,10 @@
 ## Pinned via JENKINS_CHART_VERSION env (default: latest).
 ##
 ## envsubst variables consumed:
-##   ${JENKINS_IRSA_ROLE_ARN}  - terraform output: jenkins_role_arn
-##                                (IRSA role; trust = OIDC ServiceAccount)
-##   ${CLUSTER_NAME}           - terraform output: cluster_name (used in tags)
+##   ${CLUSTER_NAME}  - terraform output: cluster_name (used in tags)
+##
+## IAM: bound via EKS Pod Identity (namespace=jenkins, sa=jenkins).
+## Association created by infra/modules/eks; no SA annotation required.
 ##
 ## POC choices:
 ##   - controller.serviceType=ClusterIP + Ingress class=nginx
@@ -16,9 +17,6 @@
 ##       kubectl -n jenkins get secret jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 -d
 ##   - persistence enabled (8Gi gp3) so jobs/credentials survive pod
 ##     rescheduling; this is a POC default — production would size up.
-##   - serviceAccount.annotations binds the existing IAM role (was the
-##     EC2 instance profile in the deleted Terraform jenkins module) to
-##     the Jenkins controller pod via IRSA.
 ##   - agent.enabled=false: this POC uses inbound k8s agents launched
 ##     per-build, not a static agent pool. The kubernetes plugin (bundled
 ##     in the chart's installPlugins list) handles dynamic provisioning.
@@ -107,10 +105,6 @@ persistence:
 serviceAccount:
   create: true
   name: jenkins
-  annotations:
-    # IRSA: pod assumes this role via the OIDC trust policy in
-    # infra/modules/iam (jenkins role).
-    eks.amazonaws.com/role-arn: ${JENKINS_IRSA_ROLE_ARN}
 
 # Per-namespace SA used by the kubernetes plugin to launch build agents.
 serviceAccountAgent:

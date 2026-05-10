@@ -1,124 +1,117 @@
 # IAM Module
 
-Creates IRSA (IAM Roles for Service Accounts) trust policies and inline policies for cluster workloads.
+Multi-type IAM role factory. Creates roles + inline policies + managed-policy
+attachments for three trust models — pick whichever you need; unused types
+stay empty:
 
-All IRSA roles are driven by a single `irsa_roles = map(object)` variable processed via `for_each`, so adding a new role from the env composition is a one-entry override. The module ships sane defaults for the five workloads this assessment uses:
+| Type | Trust principal | Use case | Default |
+|------|-----------------|----------|---------|
+| `service_roles` | AWS service principal (e.g. `lambda.amazonaws.com`, `ec2.amazonaws.com`) | Lambda execution roles, EC2 instance roles, ECS task roles | `{}` |
+| `irsa_roles` | OIDC web-identity (EKS) | Legacy IRSA workloads | `{}` (skipped unless `oidc_provider_arn` + `oidc_provider_url` are passed) |
+| `pod_identity_roles` | `pods.eks.amazonaws.com` (EKS Pod Identity) | All EKS workloads on 1.30+ | 5 built-in workload roles (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets) |
 
-- `jenkins` — `jenkins:jenkins` — ECR push/pull, EKS describe, Lambda deploy, CloudWatch Logs. Replaces the EC2 instance profile that was used by the deleted `infra/modules/jenkins` Terraform module.
-- `cluster-autoscaler` — `kube-system:cluster-autoscaler`
-- `fluent-bit` — `amazon-cloudwatch:fluent-bit`
-- `aws-lb-controller` — `kube-system:aws-load-balancer-controller`
-- `external-secrets` — `external-secrets:external-secrets`
-
-Created role names are `${cluster_name}-${role_name_suffix}` (or `${cluster_name}-${map_key}` when `role_name_suffix` is omitted). Inline policies are named `${map_key}-policy`.
-
-## Two-phase apply
-
-The IRSA roles depend on the EKS OIDC provider, which is created by the EKS module. Use this module in two phases — the gating now applies **uniformly to all roles** (previously only `jenkins` was gated):
-
-1. **Phase 1** — apply with `oidc_provider_arn = ""` (default). `for_each` evaluates to `{}` and zero IRSA roles are created.
-2. **Phase 2** — pass `oidc_provider_arn` and `oidc_provider_url` from the EKS module outputs. All roles in `var.irsa_roles` are created.
-
-## Placeholder substitution
-
-Terraform variable defaults cannot reference other variables, so the `jenkins` policy's `LambdaDeployAccess` Resource ARN uses literal placeholder tokens:
-
-| Placeholder         | Substituted with                          |
-|---------------------|-------------------------------------------|
-| `__AWS_PARTITION__` | `data.aws_partition.current.partition`    |
-| `__AWS_REGION__`    | `var.aws_region`                          |
-| `__AWS_ACCOUNT_ID__`| `var.aws_account_id`                      |
-| `__CLUSTER_NAME__`  | `var.cluster_name`                        |
-
-`main.tf` performs nested `replace()` calls on `each.value.policy_json` at apply time. Custom roles you add via the `irsa_roles` map can use the same placeholders. `__AWS_PARTITION__` enables portability across `aws`, `aws-us-gov`, and `aws-cn` partitions without per-environment overrides.
+**Pod Identity associations are created by the `eks` module**, not here. This
+module emits an `aws_iam_role` per pod_identity_roles entry plus the
+`pod_identity_role_bindings` output (`{namespace, service_account, role_arn}`),
+which is fed straight into the eks module's `pod_identity_associations` input.
 
 ## Usage
 
-Defaults — produces all five roles in phase 2:
-
 ```hcl
 module "iam" {
-  source = "./modules/iam"
+  source = "../../modules/iam"
 
-  cluster_name      = "max-weather-staging"
-  aws_region        = "us-east-1"
-  aws_account_id    = data.aws_caller_identity.current.account_id
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  oidc_provider_url = module.eks.oidc_provider_url
-  tags              = local.common_tags
-}
-```
+  cluster_name   = var.cluster_name
+  aws_region     = var.aws_region
+  aws_account_id = data.aws_caller_identity.current.account_id
+  tags           = local.common_tags
 
-Adding a custom (sixth) IRSA role from the env composition. The `irsa_roles` variable is the authoritative map: setting it replaces the defaults entirely. Re-declare the defaults you want kept and append your custom role:
+  # Pod Identity roles default to the five built-in workload roles — override
+  # to add custom roles (replaces the default map entirely).
+  pod_identity_roles = var.pod_identity_roles
 
-```hcl
-module "iam" {
-  source = "./modules/iam"
-
-  cluster_name      = "max-weather-staging"
-  aws_region        = "us-east-1"
-  aws_account_id    = data.aws_caller_identity.current.account_id
-  oidc_provider_arn = module.eks.oidc_provider_arn
-  oidc_provider_url = module.eks.oidc_provider_url
-  tags              = local.common_tags
-
-  irsa_roles = {
-    jenkins            = { namespace = "jenkins",          service_account = "jenkins",                      policy_json = jsonencode({ ... }) }
-    cluster-autoscaler = { namespace = "kube-system",      service_account = "cluster-autoscaler",           policy_json = jsonencode({ ... }) }
-    fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = jsonencode({ ... }) }
-    aws-lb-controller  = { namespace = "kube-system",      service_account = "aws-load-balancer-controller", policy_json = jsonencode({ ... }) }
-    external-secrets   = { namespace = "external-secrets", service_account = "external-secrets",             policy_json = jsonencode({ ... }) }
-
-    my-app = {
-      namespace       = "default"
-      service_account = "my-app"
+  # Optional: traditional service roles (Lambda, EC2, etc.)
+  service_roles = {
+    weather_lambda = {
+      service_principals  = ["lambda.amazonaws.com"]
+      managed_policy_arns = ["arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
       policy_json = jsonencode({
         Version = "2012-10-17"
         Statement = [{
           Effect   = "Allow"
-          Action   = ["s3:GetObject"]
-          Resource = "arn:aws:s3:::__CLUSTER_NAME__-bucket/*"
+          Action   = ["secretsmanager:GetSecretValue"]
+          Resource = "arn:__AWS_PARTITION__:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:/__CLUSTER_NAME__/*"
         }]
       })
     }
   }
+
+  # Optional: IRSA roles (legacy — prefer pod_identity_roles)
+  irsa_roles        = {}
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+}
+
+module "eks" {
+  source = "../../modules/eks"
+  # ...
+  pod_identity_associations = module.iam.pod_identity_role_bindings
+  jenkins_role_arn          = module.iam.jenkins_role_arn
 }
 ```
 
+## Inline policy templating
+
+`policy_json` strings (in any role type) accept four literal placeholders that
+are substituted at apply time:
+
+| Placeholder | Substituted with |
+|-------------|------------------|
+| `__AWS_PARTITION__` | `data.aws_partition.current.partition` |
+| `__AWS_REGION__` | `var.aws_region` |
+| `__AWS_ACCOUNT_ID__` | `var.aws_account_id` |
+| `__CLUSTER_NAME__` | `var.cluster_name` |
+
+This is what lets the Jenkins default policy scope `lambda:UpdateFunctionCode`
+to `arn:__AWS_PARTITION__:lambda:__AWS_REGION__:__AWS_ACCOUNT_ID__:function:__CLUSTER_NAME__-*`
+without baking partition/region/account into the policy JSON.
+
+## Role naming
+
+Each role is named `${var.cluster_name}-${role_name_suffix or map_key}`. Set
+`role_name_suffix` per entry to decouple the IAM role name from the map key.
+
 ## Inputs
 
-| Name                | Description                                                                                                                                                       | Type                                                                                            | Default |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|---------|
-| `cluster_name`      | EKS cluster name, used for role naming.                                                                                                                           | `string`                                                                                        | —       |
-| `oidc_provider_arn` | ARN of the EKS OIDC provider for IRSA. Empty before EKS exists (phase 1 — skips all IRSA roles).                                                                  | `string`                                                                                        | —       |
-| `oidc_provider_url` | URL of the EKS OIDC provider (without `https://`).                                                                                                                | `string`                                                                                        | —       |
-| `aws_region`        | AWS region used for ARN construction.                                                                                                                             | `string`                                                                                        | —       |
-| `aws_account_id`    | AWS account ID for ARN construction.                                                                                                                              | `string`                                                                                        | —       |
-| `tags`              | Common tags applied to all resources.                                                                                                                             | `map(string)`                                                                                   | `{}`    |
-| `irsa_roles`        | Map of IRSA roles to create. Keyed by short name; each value defines `namespace`, `service_account`, `policy_json`, optional `role_name_suffix` (defaults to key).| `map(object({ namespace = string, service_account = string, policy_json = string, role_name_suffix = optional(string) }))` | 5 defaults (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets) |
-| `inline_policy_name_suffix` | Suffix appended to each IRSA role's map key to form the inline `aws_iam_role_policy` name. | `string` | `"-policy"` |
-| `partition_placeholder` | Literal placeholder substituted with `data.aws_partition.current.partition`. | `string` | `"__AWS_PARTITION__"` |
-| `region_placeholder` | Literal placeholder substituted with `var.aws_region`. | `string` | `"__AWS_REGION__"` |
-| `account_id_placeholder` | Literal placeholder substituted with `var.aws_account_id`. | `string` | `"__AWS_ACCOUNT_ID__"` |
-| `cluster_name_placeholder` | Literal placeholder substituted with `var.cluster_name`. | `string` | `"__CLUSTER_NAME__"` |
-| `irsa_assume_role_effect` | Effect on the IRSA assume-role policy statement. | `string` | `"Allow"` |
-| `irsa_assume_role_action` | Action on the IRSA assume-role policy statement. | `string` | `"sts:AssumeRoleWithWebIdentity"` |
-| `irsa_assume_role_principal_type` | Principal type on the IRSA assume-role policy statement. | `string` | `"Federated"` |
-| `irsa_assume_role_condition_test` | Condition test operator for both `:sub` and `:aud` claims. | `string` | `"StringEquals"` |
-| `irsa_assume_role_sub_suffix` | OIDC issuer URL suffix selecting the subject claim. | `string` | `":sub"` |
-| `irsa_assume_role_aud_suffix` | OIDC issuer URL suffix selecting the audience claim. | `string` | `":aud"` |
-| `irsa_assume_role_subject_prefix` | Prefix for the OIDC `:sub` claim (`system:serviceaccount:<ns>:<sa>`). | `string` | `"system:serviceaccount:"` |
-| `irsa_assume_role_audience` | Required value of the OIDC `:aud` claim. | `string` | `"sts.amazonaws.com"` |
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| `cluster_name` | EKS cluster name (used for role naming + policy templating). | `string` | n/a | yes |
+| `aws_region` | AWS region (substitutes `__AWS_REGION__`). | `string` | n/a | yes |
+| `aws_account_id` | AWS account ID (substitutes `__AWS_ACCOUNT_ID__`). | `string` | n/a | yes |
+| `tags` | Common tags. | `map(string)` | `{}` | no |
+| `service_roles` | AWS service-principal roles (Lambda, EC2, etc.). | `map(object)` | `{}` | no |
+| `irsa_roles` | OIDC web-identity roles (legacy IRSA). Requires `oidc_provider_arn` + `oidc_provider_url`. | `map(object)` | `{}` | no |
+| `pod_identity_roles` | Pod Identity roles. `null` ships the 5 built-in defaults; supplying a map replaces them. | `map(object)` | `null` | no |
+| `oidc_provider_arn` | EKS OIDC provider ARN (only for IRSA). | `string` | `""` | no |
+| `oidc_provider_url` | EKS OIDC provider URL without `https://` (only for IRSA). | `string` | `""` | no |
+| `inline_policy_name_suffix` | Suffix for inline policy names. | `string` | `"-policy"` | no |
+| `partition_placeholder` / `region_placeholder` / `account_id_placeholder` / `cluster_name_placeholder` | Literal placeholder tokens substituted in policy JSON. | `string` | `__AWS_PARTITION__` / `__AWS_REGION__` / `__AWS_ACCOUNT_ID__` / `__CLUSTER_NAME__` | no |
+| Pod Identity / IRSA / service assume-role literals | See `variables.tf`. Every literal in the assume-role policies is overridable but defaults match AWS documented values. | various | various | no |
 
 ## Outputs
 
-| Name                          | Description                                                                  |
-|-------------------------------|------------------------------------------------------------------------------|
-| `irsa_role_arns`              | Map of IRSA role key to role ARN. Empty during phase 1.                      |
-| `irsa_role_names`             | Map of IRSA role key to role name. Empty during phase 1.                     |
-| `jenkins_role_arn`            | ARN of the Jenkins IRSA role (back-compat). Empty during phase 1.            |
-| `jenkins_role_name`           | Name of the Jenkins IRSA role (back-compat). Empty during phase 1.           |
-| `cluster_autoscaler_role_arn` | ARN of the Cluster Autoscaler IRSA role (back-compat). Empty during phase 1. |
-| `fluent_bit_role_arn`         | ARN of the Fluent Bit IRSA role (back-compat). Empty during phase 1.         |
-| `aws_lb_controller_role_arn`  | ARN of the AWS LB Controller IRSA role (back-compat). Empty during phase 1.  |
-| `external_secrets_role_arn`   | ARN of the External Secrets IRSA role (back-compat). Empty during phase 1.   |
+| Name | Description |
+|------|-------------|
+| `service_role_arns` / `service_role_names` | Maps keyed by `service_roles` map key. |
+| `irsa_role_arns` / `irsa_role_names` | Maps keyed by `irsa_roles` map key. |
+| `pod_identity_role_arns` / `pod_identity_role_names` | Maps keyed by `pod_identity_roles` map key. |
+| `pod_identity_role_bindings` | Map of `{namespace, service_account, role_arn}` per Pod Identity role — pass directly to `module.eks.pod_identity_associations`. |
+| `jenkins_role_arn` / `jenkins_role_name` | Convenience accessors for the built-in Jenkins Pod Identity role. |
+| `cluster_autoscaler_role_arn` / `fluent_bit_role_arn` / `aws_lb_controller_role_arn` / `external_secrets_role_arn` | Convenience accessors for the other four built-in Pod Identity roles. |
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | `>= 1.9, < 2.0` |
+| aws | `~> 6.0` |

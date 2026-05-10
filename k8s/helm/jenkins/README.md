@@ -3,7 +3,8 @@
 Replaces the deleted `infra/modules/jenkins` Terraform module that ran
 Jenkins on a standalone EC2 instance. This Helm release installs Jenkins
 **inside the EKS cluster** so it benefits from the same autoscaling,
-logging, monitoring, and IAM (IRSA) plumbing as the application workloads.
+logging, monitoring, and IAM (EKS Pod Identity) plumbing as the
+application workloads.
 
 ## Chart
 
@@ -20,10 +21,10 @@ logging, monitoring, and IAM (IRSA) plumbing as the application workloads.
 - `jenkins` ClusterIP Service + Ingress (class `nginx`) — surfaced via the
   existing public NLB provisioned by the `nginx-ingress` release. No second
   LoadBalancer is created.
-- `jenkins` ServiceAccount annotated with `eks.amazonaws.com/role-arn` for
-  IRSA. The IAM role itself is still managed by `infra/modules/iam`
-  (output: `jenkins_role_arn`); only the trust policy changed
-  (was: EC2 service principal → now: OIDC federated principal).
+- `jenkins` ServiceAccount (no IAM annotation). The IAM role itself is
+  managed by `infra/modules/iam` (output: `jenkins_role_arn`) and bound
+  to the SA via an `aws_eks_pod_identity_association` created by
+  `infra/modules/eks`. Trust principal is `pods.eks.amazonaws.com`.
 - `jenkins-agent` ServiceAccount used by the Kubernetes plugin to launch
   per-build agent pods.
 

@@ -74,6 +74,16 @@ module "eks" {
   tags = var.tags
 }
 
+resource "aws_eks_pod_identity_association" "this" {
+  for_each = var.pod_identity_associations
+
+  cluster_name    = module.eks.cluster_name
+  namespace       = each.value.namespace
+  service_account = each.value.service_account
+  role_arn        = each.value.role_arn
+  tags            = var.tags
+}
+
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
   version = "~> 21.20"

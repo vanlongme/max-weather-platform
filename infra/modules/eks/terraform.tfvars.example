@@ -3,7 +3,7 @@
 # These values mirror the env defaults so the module can also be invoked standalone.
 
 cluster_name    = "max-weather"
-cluster_version = "1.30"
+cluster_version = "1.34"
 
 vpc_id     = "vpc-REPLACE"
 subnet_ids = ["subnet-REPLACE-AZ1", "subnet-REPLACE-AZ2", "subnet-REPLACE-AZ3"]

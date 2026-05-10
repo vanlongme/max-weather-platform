@@ -1,0 +1,41 @@
+contents:
+  repositories:
+    - https://packages.wolfi.dev/os
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  packages:
+    - wolfi-baselayout
+    - ca-certificates-bundle
+    - tzdata
+    - busybox
+    - nodejs-20
+    - npm
+    - wget
+
+accounts:
+  groups:
+    - groupname: app
+      gid: 65532
+  users:
+    - username: app
+      uid: 65532
+      gid: 65532
+  run-as: 65532
+
+entrypoint:
+  command: /usr/bin/node
+
+work-dir: /app
+
+environment:
+  NODE_ENV: production
+  PATH: /usr/sbin:/sbin:/usr/bin:/bin
+
+archs:
+  - x86_64
+
+annotations:
+  org.opencontainers.image.title: max-weather-base-nodejs
+  org.opencontainers.image.description: Distroless Node.js 20 base image built from Chainguard Wolfi via apko.
+  org.opencontainers.image.source: https://github.com/chainguard-dev/apko
+  org.opencontainers.image.licenses: Apache-2.0

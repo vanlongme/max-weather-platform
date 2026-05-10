@@ -1,98 +1,173 @@
-###############################################################################
-# Required variables — copy this file to terraform.tfvars and fill in.
-###############################################################################
-aws_region            = "us-east-1"
-cluster_name          = "max-weather"
-allowed_cidrs         = ["YOUR_PUBLIC_IP/32"]
-cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
+# ###############################################################################
+# # Required variables — copy this file to terraform.tfvars and fill in.
+# ###############################################################################
+# aws_region            = "us-east-1"
+# cluster_name          = "max-weather"
+# allowed_cidrs         = ["YOUR_PUBLIC_IP/32"]
+# cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
 
-###############################################################################
-# Optional overrides — uncomment to customize. Defaults preserve the original
-# POC behavior: 1.30 EKS, single t3.medium 2/10/2 general node group, 7-day
-# log retention, two ECR repos, two Secrets Manager secrets, weather-api
-# Cognito client, and the five built-in IRSA roles.
-###############################################################################
+# ###############################################################################
+# # Optional overrides — uncomment to customize. Defaults preserve the original
+# # POC behavior: 1.34 EKS on Bottlerocket, single t3.medium 1/10/1 general node
+# # group, 7-day log retention, three ECR repos, two Secrets Manager secrets,
+# # weather-api Cognito client, and the five built-in EKS Pod Identity roles.
+# #
+# # Map-variable semantics: supplying any map(object) variable REPLACES the
+# # default map entirely (no merge). Re-declare any built-in entries you want
+# # to keep. Names accept the literal placeholders __CLUSTER_NAME__,
+# # __AWS_REGION__, __AWS_ACCOUNT_ID__, __AWS_PARTITION__ which the modules
+# # substitute at apply time.
+# ###############################################################################
 
-# eks_cluster_version = "1.30"
-# log_retention_days  = 7
+# # eks_cluster_version = "1.34"
+# # log_retention_days  = 7
 
-###############################################################################
-# EKS managed node groups — multiple groups, mixed instance types, taints, etc.
-###############################################################################
-# eks_managed_node_groups = {
-#   general = {
-#     instance_types = ["t3.medium"]
-#     min_size       = 2
-#     max_size       = 10
-#     desired_size   = 2
-#     labels         = { role = "general" }
-#   }
-#   spot = {
-#     instance_types = ["t3.large", "t3a.large"]
-#     capacity_type  = "SPOT"
-#     min_size       = 0
-#     max_size       = 20
-#     desired_size   = 0
-#     labels         = { role = "spot" }
-#     taints = {
-#       spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" }
-#     }
-#   }
-# }
+# ###############################################################################
+# # Networking — VPC CIDR + AZ / public subnet layout
+# ###############################################################################
+# # vpc_cidr            = "10.20.0.0/16"
+# # availability_zones  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+# # public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
 
-###############################################################################
-# CloudWatch log groups — `__CLUSTER_NAME__` is substituted with var.cluster_name
-###############################################################################
-# log_groups = {
-#   eks_application   = { name = "/aws/eks/__CLUSTER_NAME__/application" }
-#   eks_control_plane = { name = "/aws/eks/__CLUSTER_NAME__/cluster" }
-#   lambda_authorizer = { name = "/aws/lambda/__CLUSTER_NAME__-authorizer" }
-#   api_gateway       = { name = "/aws/apigateway/__CLUSTER_NAME__-api" }
-#   jenkins           = { name = "/aws/ec2/__CLUSTER_NAME__-jenkins" }
-#   my_extra          = { name = "/aws/myapp", retention_days = 14 }
-# }
+# ###############################################################################
+# # EKS cluster add-ons — defaults: CoreDNS, kube-proxy, VPC CNI, Pod Identity
+# # Agent (the latter is required by the Karpenter sub-module's Pod Identity
+# # association in terraform-aws-modules/eks v21+).
+# ###############################################################################
+# # cluster_addons = {
+# #   coredns                = {}
+# #   kube-proxy             = {}
+# #   vpc-cni                = { before_compute = true }
+# #   eks-pod-identity-agent = { before_compute = true }
+# # }
 
-###############################################################################
-# ECR repositories — map keyed by full repo name; per-repo overrides optional
-###############################################################################
-# ecr_repositories = {
-#   "max-weather-api"               = {}
-#   "max-weather-lambda-authorizer" = { keep_tagged_image_count = 5 }
-# }
+# ###############################################################################
+# # Extra EKS access entries — merged after the operator + jenkins entries the
+# # eks module creates by default. Use to grant additional principals cluster
+# # access without modifying the module.
+# ###############################################################################
+# # eks_access_entries = {
+# #   readonly = {
+# #     principal_arn = "arn:aws:iam::__AWS_ACCOUNT_ID__:role/AuditReadOnly"
+# #     policy_associations = {
+# #       view = {
+# #         policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+# #         access_scope = { type = "cluster" }
+# #       }
+# #     }
+# #   }
+# # }
 
-###############################################################################
-# Secrets Manager — `__CLUSTER_NAME__` is substituted with var.cluster_name
-###############################################################################
-# secrets = {
-#   cognito_client_secret = {
-#     name          = "/__CLUSTER_NAME__/cognito/client-secret"
-#     description   = "Cognito app client secret for weather-api OAuth2."
-#     initial_value = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
-#   }
-#   app_config = {
-#     name          = "/__CLUSTER_NAME__/app/config"
-#     description   = "weather-api application runtime configuration."
-#     initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\",\"PORT\":\"3000\"}"
-#   }
-# }
+# ###############################################################################
+# # EKS managed node group defaults (applied to every group; per-group wins).
+# ###############################################################################
+# # eks_managed_node_group_defaults = {
+# #   attach_cluster_primary_security_group = false
+# # }
 
-###############################################################################
-# Cognito app clients
-###############################################################################
-# cognito_app_clients = {
-#   weather_api = { name_suffix = "weather-api" }
-#   analytics   = { name_suffix = "analytics", allowed_oauth_scopes = ["weather-api/read"] }
-# }
+# ###############################################################################
+# # EKS managed node groups — multiple groups, mixed instance types, taints, etc.
+# ###############################################################################
+# # eks_managed_node_groups = {
+# #   general = {
+# #     instance_types = ["t3.medium"]
+# #     ami_type       = "BOTTLEROCKET_x86_64"
+# #     min_size       = 1
+# #     max_size       = 10
+# #     desired_size   = 1
+# #     labels         = { role = "general" }
+# #   }
+# #   spot = {
+# #     instance_types = ["t3.large", "t3a.large"]
+# #     capacity_type  = "SPOT"
+# #     min_size       = 0
+# #     max_size       = 20
+# #     desired_size   = 0
+# #     labels         = { role = "spot" }
+# #     taints = {
+# #       spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" }
+# #     }
+# #   }
+# # }
 
-###############################################################################
-# IRSA roles — replaces the 5 built-in defaults entirely. Re-declare any you
-# want kept. Policy JSON may use __AWS_REGION__ / __AWS_ACCOUNT_ID__ /
-# __CLUSTER_NAME__ placeholders.
-###############################################################################
-# irsa_roles = {
-#   jenkins            = { namespace = "jenkins",          service_account = "jenkins",                      policy_json = "..." }
-#   cluster-autoscaler = { namespace = "kube-system",      service_account = "cluster-autoscaler",           policy_json = "..." }
-#   fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = "..." }
-#   aws-lb-controller  = { namespace = "kube-system",      service_account = "aws-load-balancer-controller", policy_json = "..." }
-#   external-secrets   = { namespace = "external-secrets", service_account = "external-secrets",             policy_json = "..." }
-# }
+# ###############################################################################
+# # CloudWatch log groups — `__CLUSTER_NAME__` is substituted with var.cluster_name
+# ###############################################################################
+# # log_groups = {
+# #   eks_application   = { name = "/aws/eks/__CLUSTER_NAME__/application" }
+# #   eks_control_plane = { name = "/aws/eks/__CLUSTER_NAME__/cluster" }
+# #   lambda_authorizer = { name = "/aws/lambda/__CLUSTER_NAME__-authorizer" }
+# #   api_gateway       = { name = "/aws/apigateway/__CLUSTER_NAME__-api" }
+# #   jenkins           = { name = "/aws/ec2/__CLUSTER_NAME__-jenkins" }
+# #   my_extra          = { name = "/aws/myapp", retention_days = 14 }
+# # }
+
+# ###############################################################################
+# # ECR repositories — map keyed by full repo name; per-repo overrides optional
+# ###############################################################################
+# # ecr_repositories = {
+# #   "max-weather-api"               = {}
+# #   "max-weather-lambda-authorizer" = { keep_tagged_image_count = 5 }
+# # }
+
+# ###############################################################################
+# # Secrets Manager — `__CLUSTER_NAME__` is substituted with var.cluster_name
+# ###############################################################################
+# # secrets = {
+# #   cognito_client_secret = {
+# #     name          = "/__CLUSTER_NAME__/cognito/client-secret"
+# #     description   = "Cognito app client secret for weather-api OAuth2."
+# #     initial_value = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
+# #   }
+# #   app_config = {
+# #     name          = "/__CLUSTER_NAME__/app/config"
+# #     description   = "weather-api application runtime configuration."
+# #     initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\",\"PORT\":\"3000\"}"
+# #   }
+# # }
+
+# ###############################################################################
+# # Cognito app clients
+# ###############################################################################
+# # cognito_app_clients = {
+# #   weather_api = { name_suffix = "weather-api" }
+# #   analytics   = { name_suffix = "analytics", allowed_oauth_scopes = ["weather-api/read"] }
+# # }
+
+# ###############################################################################
+# # EKS Pod Identity roles — replaces the 5 built-in defaults entirely. Re-declare
+# # any you want kept. Policy JSON may use __AWS_PARTITION__ / __AWS_REGION__ /
+# # __AWS_ACCOUNT_ID__ / __CLUSTER_NAME__ placeholders.
+# ###############################################################################
+# # pod_identity_roles = {
+# #   jenkins            = { namespace = "jenkins",          service_account = "jenkins",                      policy_json = "..." }
+# #   cluster-autoscaler = { namespace = "kube-system",      service_account = "cluster-autoscaler",           policy_json = "..." }
+# #   fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = "..." }
+# #   aws-lb-controller  = { namespace = "kube-system",      service_account = "aws-load-balancer-controller", policy_json = "..." }
+# #   external-secrets   = { namespace = "external-secrets", service_account = "external-secrets",             policy_json = "..." }
+# # }
+
+# ###############################################################################
+# # Traditional service-principal IAM roles (Lambda, EC2, ECS, etc.). Empty by
+# # default — the iam module only creates these when entries are supplied.
+# ###############################################################################
+# # iam_service_roles = {
+# #   weather_lambda_exec = {
+# #     service_principals  = ["lambda.amazonaws.com"]
+# #     role_name_suffix    = "lambda-exec"
+# #     managed_policy_arns = ["arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+# #     policy_json         = "{...inline policy json with __CLUSTER_NAME__/__AWS_REGION__/__AWS_ACCOUNT_ID__/__AWS_PARTITION__ placeholders...}"
+# #   }
+# # }
+
+# ###############################################################################
+# # Legacy IRSA roles (OIDC web-identity). Empty by default — prefer
+# # pod_identity_roles for new workloads on EKS 1.30+.
+# ###############################################################################
+# # iam_irsa_roles = {
+# #   legacy_workload = {
+# #     namespace       = "legacy"
+# #     service_account = "worker"
+# #     policy_json     = "{...inline policy json...}"
+# #   }
+# # }

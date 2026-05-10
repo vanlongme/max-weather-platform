@@ -1,9 +1,6 @@
 cluster_name   = "max-weather"
 aws_region     = "us-east-1"
-aws_account_id = "REPLACE_AWS_ACCOUNT_ID"
-
-oidc_provider_arn = "arn:aws:iam::REPLACE_AWS_ACCOUNT_ID:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/REPLACE_OIDC_ID"
-oidc_provider_url = "oidc.eks.us-east-1.amazonaws.com/id/REPLACE_OIDC_ID"
+aws_account_id = "123456789012"
 
 tags = {
   Project     = "max-weather"
@@ -11,38 +8,39 @@ tags = {
   ManagedBy   = "terraform"
 }
 
-# irsa_roles defaults provide jenkins, cluster-autoscaler, fluent-bit,
-# aws-lb-controller, external-secrets. The variable is the authoritative
-# map — setting it replaces the defaults entirely. Override or extend like:
-#
-# irsa_roles = {
-#   jenkins = {
-#     namespace        = "jenkins"
-#     service_account  = "jenkins"
-#     role_name_suffix = "jenkins"
-#     policy_json = jsonencode({
-#       Version = "2012-10-17"
-#       Statement = [
-#         { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
-#         {
-#           Effect   = "Allow"
-#           Action   = ["lambda:UpdateFunctionCode", "lambda:GetFunction"]
-#           Resource = "arn:aws:lambda:__AWS_REGION__:__AWS_ACCOUNT_ID__:function:__CLUSTER_NAME__-*"
-#         },
-#       ]
-#     })
-#   }
-#   cluster-autoscaler = { namespace = "kube-system",       service_account = "cluster-autoscaler",           policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }) }
-#   fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }) }
-#   aws-lb-controller  = { namespace = "kube-system",       service_account = "aws-load-balancer-controller", policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }), role_name_suffix = "aws-lb-controller" }
-#   external-secrets   = { namespace = "external-secrets",  service_account = "external-secrets",             policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }) }
-#
-#   custom = {
-#     namespace       = "default"
-#     service_account = "my-app"
-#     policy_json = jsonencode({
-#       Version = "2012-10-17"
-#       Statement = [{ Effect = "Allow", Action = ["s3:GetObject"], Resource = "arn:aws:s3:::__CLUSTER_NAME__-bucket/*" }]
-#     })
-#   }
-# }
+# Defaulting pod_identity_roles to null ships the five built-in workload roles
+# (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets).
+# Supplying a map below REPLACES the defaults — re-declare any built-ins to keep.
+pod_identity_roles = null
+
+# Optional: traditional service-principal roles. Empty by default.
+service_roles = {
+  weather_lambda_exec = {
+    service_principals = ["lambda.amazonaws.com"]
+    role_name_suffix   = "lambda-exec"
+
+    managed_policy_arns = [
+      "arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+    ]
+
+    policy_json = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+          ]
+          Resource = "arn:__AWS_PARTITION__:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:/__CLUSTER_NAME__/*"
+        },
+      ]
+    })
+  }
+}
+
+# Optional: legacy IRSA roles. Requires oidc_provider_arn + oidc_provider_url
+# from the eks module. Prefer pod_identity_roles for new workloads.
+irsa_roles        = {}
+oidc_provider_arn = ""
+oidc_provider_url = ""

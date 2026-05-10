@@ -59,23 +59,38 @@ output "eks_application_log_group" {
 }
 
 output "cluster_autoscaler_role_arn" {
-  description = "IRSA role ARN for the cluster-autoscaler Helm chart."
+  description = "Pod Identity role ARN for the cluster-autoscaler Helm chart (informational; the eks module creates the ServiceAccount binding via aws_eks_pod_identity_association)."
   value       = module.iam.cluster_autoscaler_role_arn
 }
 
 output "fluent_bit_role_arn" {
-  description = "IRSA role ARN for the Fluent Bit DaemonSet."
+  description = "Pod Identity role ARN for the Fluent Bit DaemonSet (informational)."
   value       = module.iam.fluent_bit_role_arn
 }
 
 output "aws_lb_controller_role_arn" {
-  description = "IRSA role ARN for the AWS Load Balancer Controller Helm chart."
+  description = "Pod Identity role ARN for the AWS Load Balancer Controller Helm chart (informational)."
   value       = module.iam.aws_lb_controller_role_arn
 }
 
 output "external_secrets_role_arn" {
-  description = "IRSA role ARN for the External Secrets Operator Helm chart."
+  description = "Pod Identity role ARN for the External Secrets Operator Helm chart (informational)."
   value       = module.iam.external_secrets_role_arn
+}
+
+output "jenkins_role_arn" {
+  description = "Pod Identity role ARN for Jenkins (informational; also used by the eks module access entry)."
+  value       = module.iam.jenkins_role_arn
+}
+
+output "iam_service_role_arns" {
+  description = "Map of AWS service-principal IAM role ARNs created via the iam module."
+  value       = module.iam.service_role_arns
+}
+
+output "iam_irsa_role_arns" {
+  description = "Map of legacy IRSA role ARNs created via the iam module."
+  value       = module.iam.irsa_role_arns
 }
 
 output "karpenter_queue_name" {

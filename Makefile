@@ -9,6 +9,7 @@ ECR_HOST   := $(shell echo $(APP_REPO) | cut -d/ -f1)
 
 .PHONY: help init plan apply destroy \
         ecr-login app-build app-build-push app-run-local app-shell \
+        base-image-build base-image-push \
         authorizer-package authorizer-deploy \
         install-addons deploy-staging deploy-prod \
         test lint \
@@ -33,6 +34,12 @@ destroy: ## Destroy Terraform infrastructure for staging env
 
 ecr-login: ## Authenticate Docker to ECR
 	aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $(ECR_HOST)
+
+base-image-build: ## Build the Chainguard apko Node.js base image to a local OCI tarball
+	cd base-image && ./build.sh local
+
+base-image-push: ## Build + push the Chainguard apko Node.js base image to ECR
+	cd base-image && AWS_REGION=$(REGION) CLUSTER=$(CLUSTER) ./build.sh
 
 app-build: ## Build weather-api Docker image locally
 	docker buildx build --platform linux/amd64 -t weather-api:$(GIT_SHA) app/

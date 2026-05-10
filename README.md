@@ -31,7 +31,7 @@ The data plane:
 | D1 | Architecture diagram | `docs/architecture.drawio`, `docs/architecture.png` |
 | D2 | Terraform IaC (modular, remote state) | `infra/bootstrap/`, `infra/envs/poc/`, `infra/modules/` (each module ships README.md + terraform.tfvars.example) |
 | D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, `k8s/helm/`, `scripts/install-helm-addons.sh` |
-| D4 | Jenkins CI/CD pipeline | `Jenkinsfile`, `ci/README.md` |
+| D4 | Jenkins CI/CD pipeline | `app/Jenkinsfile` (declarative), `app/README.md` (Jenkins setup) |
 | D5 | API Gateway + Cognito + Lambda authorizer | `infra/modules/{cognito,api-gateway,lambda-authorizer}/`, `lambda-authorizer/`, `docs/api-gateway-runbook.md` |
 | D6 | Postman collection + load test | `docs/postman/`, `tests/load/weather-load.js` |
 
@@ -87,21 +87,26 @@ make verify-evidence
 
 ```
 .
-├── Jenkinsfile                  # CI/CD pipeline (declarative)
 ├── Makefile                     # Operator entrypoints
 ├── README.md                    # You are here
-├── app/                         # Weather API (Node.js)
+├── app/                         # Weather API (Node.js) — owns its Dockerfile + Jenkinsfile
+├── base-image/                  # Chainguard apko base Node.js image (apko.yaml + build.sh)
 ├── lambda-authorizer/           # Cognito JWT validator (Node.js)
 ├── infra/
 │   ├── bootstrap/               # Remote state backend (S3 + DynamoDB)
 │   ├── envs/
 │   │   └── poc/                 # Single POC composition — hosts both weather-staging + weather-prod namespaces
 │   └── modules/                 # Reusable Terraform modules (each ships README.md + terraform.tfvars.example)
+│       │                        # Every module follows the same file layout: variables.tf, main.tf,
+│       │                        # outputs.tf, versions.tf — plus locals.tf where computed values exist
+│       │                        # and data.tf where AWS data sources are read. All resource arguments
+│       │                        # are driven by variables (defaults preserve byte-for-byte behavior).
 │       ├── networking/          # VPC + public subnets + IGW (POC: no NAT/private subnets — see module README)
-│       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 21.20 + Karpenter sub-module (IAM, SQS, instance profile, Pod Identity)
+│       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 21.20 + Karpenter sub-module
+│       │                        # (IAM, SQS, instance profile, Pod Identity — no IRSA SA annotation)
 │       ├── ecr/                 # Container registries
 │       ├── cognito/             # User Pool, App Client, Resource Server
-│       ├── iam/                 # IRSA roles (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)
+│       ├── iam/                 # Multi-type IAM role factory: service_roles (EC2/Lambda trust), irsa_roles (legacy OIDC), pod_identity_roles (default; 5 built-ins: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)
 │       ├── secrets/             # Secrets Manager seed values
 │       └── cloudwatch/          # Log groups
 ├── k8s/
@@ -117,9 +122,9 @@ make verify-evidence
 │       ├── aws-lb-controller/
 │       ├── external-secrets/
 │       ├── metrics-server/
-│       ├── jenkins/             # jenkinsci/jenkins chart, latest version at install (IRSA + ingress-nginx)
+│       ├── jenkins/             # jenkinsci/jenkins chart, latest version at install (Pod Identity + ingress-nginx)
 │       └── karpenter/           # Karpenter v1.6.0 chart values + EC2NodeClass + NodePool
-├── ci/                          # Jenkins README
+
 ├── docs/
 │   ├── architecture.drawio      # Source diagram
 │   ├── architecture.png         # Rendered diagram
@@ -156,12 +161,18 @@ Key variables:
 | `environment` | Env name (used in tags and DNS) | `staging` |
 | `vpc_cidr` | VPC IPv4 CIDR | `10.20.0.0/16` |
 | `azs` | Availability zones | `["us-east-1a","us-east-1b"]` |
-| `eks_version` | Kubernetes minor | `1.29` |
-| `node_instance_types` | Worker EC2 instance types | `["t3.medium"]` |
-| `node_desired_capacity` | Initial worker count | `2` |
-| `node_min_size` / `node_max_size` | Autoscaling bounds | `2` / `5` |
-| `cognito_domain_prefix` | Cognito hosted UI subdomain | `max-weather-staging` |
-| `tags` | Common tags applied to all resources | `{ Project = "max-weather", Env = "staging" }` |
+| `eks_cluster_version` | Kubernetes minor | `1.34` |
+| `eks_managed_node_groups` | EKS managed node groups (map of objects); default ships single `general` Bottlerocket t3.medium 1/10/1 init worker (Karpenter scales the rest) | see `terraform.tfvars.example` |
+| `cluster_addons` | EKS add-ons; defaults: CoreDNS, kube-proxy, VPC CNI, EKS Pod Identity Agent | `{ ... }` |
+| `pod_identity_roles` | Map of EKS Pod Identity roles to create (associations bound by `module.eks`); default ships 5 built-ins (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets). `iam_service_roles` and `iam_irsa_roles` are also exposed for traditional EC2/Lambda and legacy IRSA roles respectively. | see `terraform.tfvars.example` |
+| `log_groups` / `secrets` / `ecr_repositories` / `cognito_app_clients` | Map-driven resource sets; names may include `__CLUSTER_NAME__` placeholder substituted at apply time | see `terraform.tfvars.example` |
+| `cognito_domain_prefix` | Cognito hosted UI subdomain (globally unique) | `max-weather-abc123` |
+
+> **Map-variable semantics**: supplying any of the `map(object)` variables above
+> **REPLACES** the module's default map entirely (no merge). Re-declare any
+> built-in entries you want to keep. Resource names accept literal placeholders
+> `__CLUSTER_NAME__`, `__AWS_REGION__`, `__AWS_ACCOUNT_ID__`, `__AWS_PARTITION__`
+> which are substituted by the modules at apply time.
 
 All resources are tagged with `Project=max-weather` so cost and cleanup queries
 can scope to this assessment.
@@ -174,7 +185,7 @@ Steady-state monthly cost (us-east-1, on-demand pricing) for the POC stack
 | Service | Monthly USD |
 |---------|-------------|
 | EKS control plane | 73 |
-| 2 x t3.medium worker nodes | 60 |
+| 1 x t3.medium init worker node (Bottlerocket) | 30 |
 | NLB (created by ingress-nginx Service, internet-facing) | 18 |
 | ECR storage (~5 GB) | 1 |
 | CloudWatch Logs (5 log groups, ~5 GB ingest) | 8 |
@@ -184,7 +195,7 @@ Steady-state monthly cost (us-east-1, on-demand pricing) for the POC stack
 | Cognito (under MAU limit) | 0 |
 | Secrets Manager (5 secrets) | 2 |
 | Jenkins (in-cluster pod, 8Gi gp3 PVC) | 1 |
-| **Total** | **~169** |
+| **Total** | **~139** |
 
 POC topology savings vs a production-style network:
 
@@ -246,14 +257,14 @@ The cluster runs **both** node autoscalers side-by-side, with strict separation 
 
 | Autoscaler | Manages | Why both? |
 |------------|---------|-----------|
-| **Cluster Autoscaler** (`9.37.0`) | The static `general` Managed Node Group (min 2, max 10 t3.medium) that hosts system pods (kube-system, ingress-nginx, autoscalers themselves) | Provides a stable baseline so cluster-critical pods always have somewhere to land, including Karpenter's controller itself |
+| **Cluster Autoscaler** (`9.37.0`) | The static `general` Bottlerocket Managed Node Group (min 1, max 10 t3.medium init worker) that hosts system pods (kube-system, ingress-nginx, autoscalers themselves) | Provides a stable baseline so cluster-critical pods always have somewhere to land, including Karpenter's controller itself |
 | **Karpenter** (`v1.6.0`) | All other workload pods via `NodePool` / `EC2NodeClass` (on-demand t3.medium-large, AL2023) | Faster scale-up (~30s vs ~3min), bin-packing, and consolidation — ideal for the bursty `weather-api` HPA |
 
 **Coexistence mechanism**: Karpenter's `NodePool` taints every node it provisions with `karpenter.sh/provisioned=true:NoSchedule`. The Karpenter controller pod uses `nodeSelector: role=general` to pin itself onto the Managed Node Group, breaking the chicken-and-egg problem. Cluster Autoscaler ignores tainted nodes; Karpenter ignores the Managed Node Group.
 
 **AWS scaffolding** (provisioned by `infra/modules/eks` via the upstream `terraform-aws-modules/eks/aws//modules/karpenter` sub-module):
 
-- IAM role `<cluster>-karpenter-controller` (IRSA) — controller permissions
+- IAM role `<cluster>-karpenter-controller` (EKS Pod Identity) — controller permissions
 - IAM role `<cluster>-karpenter-node` + EC2 instance profile — assumed by provisioned instances
 - SQS queue `<cluster>-karpenter` — receives EC2 spot interruption / health events
 - EventBridge rules forwarding instance-state events into the queue
@@ -312,7 +323,7 @@ aws resourcegroupstaggingapi get-resources \
 ## Security Notes
 
 - **No secrets in Git.** All secrets (Cognito client_secret, third-party API keys) live in AWS Secrets Manager and are mounted into pods via External Secrets Operator. The Postman environment template ships with empty secret fields.
-- **IRSA everywhere.** Workload pods (Cluster Autoscaler, AWS LB Controller, Fluent Bit, External Secrets, weather-api) use IAM Roles for Service Accounts — no node-level IAM credentials shared across pods.
+- **EKS Pod Identity everywhere.** Workload pods (Jenkins, Cluster Autoscaler, AWS LB Controller, Fluent Bit, External Secrets, Karpenter) assume IAM roles via EKS Pod Identity associations (trust principal `pods.eks.amazonaws.com`) — no node-level credentials shared across pods, no OIDC ServiceAccount annotation. The `iam` module also exposes `irsa_roles` for legacy OIDC-trust workloads when needed.
 - **Least-privilege IAM.** Each module owns its own IAM role with policies scoped to the resources it manages.
 - **Network isolation (POC trade-off).** This POC places worker nodes in **public subnets** (each gets a public IPv4) so that ECR / Cognito / Open-Meteo egress works without a NAT Gateway. Inbound exposure is contained by Security Groups (SSH never opened publicly; the EKS API endpoint is locked to `var.allowed_cidrs`; the ingress-nginx NLB is the only intentionally public entry point and is itself fronted by API Gateway + the Cognito-backed Lambda authorizer). For production, switch to private subnets + NAT Gateway (or VPC endpoints for ECR/Logs/STS) and flip the ingress-nginx Service annotation back to `internal`. The networking module ships both `kubernetes.io/role/elb` and `kubernetes.io/role/internal-elb` tags so the production overlay can place internal NLBs without re-tagging.
 - **NetworkPolicies.** `weather-api` pods accept ingress only from `ingress-nginx` and egress only to DNS, Cognito JWKS, and Open-Meteo.
