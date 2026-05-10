@@ -1,0 +1,10 @@
+cluster_name  = "max-weather"
+domain_prefix = "max-weather-UNIQUE-SUFFIX"
+
+resource_server_identifier = "weather-api"
+
+tags = {
+  Project     = "max-weather"
+  Environment = "poc"
+  ManagedBy   = "terraform"
+}

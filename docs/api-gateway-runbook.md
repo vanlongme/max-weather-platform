@@ -17,8 +17,8 @@ export LAMBDA_ARN=$(aws lambda get-function \
   --query 'Configuration.FunctionArn' \
   --output text --region $AWS_REGION)
 
-export COGNITO_DOMAIN=$(cd infra/envs/staging && terraform output -raw cognito_domain)
-export COGNITO_CLIENT_ID=$(cd infra/envs/staging && terraform output -raw cognito_client_id)
+export COGNITO_DOMAIN=$(cd infra/envs/poc && terraform output -raw cognito_domain)
+export COGNITO_CLIENT_ID=$(cd infra/envs/poc && terraform output -raw cognito_client_id)
 export COGNITO_TOKEN_ENDPOINT="https://$COGNITO_DOMAIN/oauth2/token"
 ```
 
@@ -166,8 +166,8 @@ aws apigatewayv2 delete-api --api-id $API_ID --region $AWS_REGION
 
 When time permits, import the API Gateway resource into Terraform:
 ```bash
-terraform import -chdir=infra/envs/staging \
+terraform import -chdir=infra/envs/poc \
   aws_apigatewayv2_api.max_weather <API_ID>
 ```
 
-See `infra/envs/staging/` for placeholder `imported.tf` file.
+See `infra/envs/poc/` for placeholder `imported.tf` file.
