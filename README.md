@@ -126,7 +126,7 @@ make verify-evidence
 │   ├── architecture.png         # Rendered diagram
 │   ├── api-gateway-runbook.md   # Manual API Gateway / VPC Link / Authorizer wiring
 │   ├── postman/                 # Postman collection + env template
-│   └── evidence/                # Captured evidence (terraform, k8s, k6, CloudWatch, teardown)
+│   └── evidence/                # Captured evidence (terraform, k8s, k6, CloudWatch, teardown — populated by `make evidence`)
 ├── tests/
 │   └── load/weather-load.js     # k6 load test
 └── scripts/                     # Operational scripts
