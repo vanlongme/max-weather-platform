@@ -40,20 +40,26 @@ variable "eks_cluster_version" {
   default     = "1.30"
 }
 
+variable "node_instance_types" {
+  description = "EC2 instance types for the default managed node group."
+  type        = list(string)
+  default     = ["t3.medium"]
+}
+
 variable "node_min_size" {
-  description = "Minimum number of EKS worker nodes."
+  description = "Minimum number of EKS worker nodes in the default managed node group."
   type        = number
   default     = 2
 }
 
 variable "node_max_size" {
-  description = "Maximum number of EKS worker nodes."
+  description = "Maximum number of EKS worker nodes in the default managed node group."
   type        = number
   default     = 10
 }
 
 variable "node_desired_size" {
-  description = "Initial desired number of EKS worker nodes."
+  description = "Initial desired number of EKS worker nodes in the default managed node group."
   type        = number
   default     = 2
 }
@@ -72,18 +78,6 @@ variable "allowed_cidrs" {
 variable "cognito_domain_prefix" {
   description = "Globally unique prefix for the Cognito hosted UI domain (e.g. max-weather-abc123)."
   type        = string
-}
-
-variable "oidc_provider_arn" {
-  description = "ARN of the EKS OIDC provider (populated in phase-2 apply after EKS cluster is created)."
-  type        = string
-  default     = ""
-}
-
-variable "oidc_provider_url" {
-  description = "URL of the EKS OIDC provider without https:// prefix (populated in phase-2 apply)."
-  type        = string
-  default     = ""
 }
 
 variable "jenkins_key_name" {

@@ -1,0 +1,41 @@
+## karpenter Helm chart values (chart version 1.6.0)
+##
+## envsubst variables (sourced from terraform output by scripts/install-helm-addons.sh):
+##   ${CLUSTER_NAME}              - terraform output: cluster_name
+##   ${CLUSTER_ENDPOINT}          - terraform output: cluster_endpoint
+##   ${KARPENTER_IAM_ROLE_ARN}    - terraform output: karpenter_iam_role_arn
+##   ${KARPENTER_QUEUE_NAME}      - terraform output: karpenter_queue_name
+
+replicas: 2
+
+serviceAccount:
+  create: true
+  name: karpenter
+  annotations:
+    eks.amazonaws.com/role-arn: ${KARPENTER_IAM_ROLE_ARN}
+
+settings:
+  clusterName: ${CLUSTER_NAME}
+  clusterEndpoint: ${CLUSTER_ENDPOINT}
+  interruptionQueue: ${KARPENTER_QUEUE_NAME}
+  featureGates:
+    spotToSpotConsolidation: true
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+## Karpenter must run on managed-NG nodes (not on Karpenter-provisioned nodes)
+## to avoid the "controller deletes its own node" foot-gun. The default
+## managed node group has no taints, so a simple nodeSelector is sufficient.
+nodeSelector:
+  role: general
+
+tolerations: []
+
+logLevel: info
