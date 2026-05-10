@@ -1,6 +1,6 @@
 # API Gateway Manual Setup Runbook
 
-This runbook documents how to create and configure an **AWS API Gateway HTTP API** (v2) to front the Max Weather service with Cognito OAuth2 authorization via a Lambda authorizer.
+This runbook documents how to create and configure an **AWS API Gateway HTTP API** (v2) to front the Max Weather service with HS256 JWT authorization via a Lambda authorizer backed by a shared secret in AWS Secrets Manager.
 
 > **Note**: The PDF assessment allows manual API Gateway setup. This runbook provides reproducible step-by-step instructions with all shell commands.
 
@@ -13,13 +13,11 @@ export NLB_DNS=$(kubectl get svc -n ingress-nginx nginx-ingress-ingress-nginx-co
   -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 export LAMBDA_ARN=$(aws lambda get-function \
-  --function-name max-weather-authorizer \
+  --function-name poc-max-weather-authorizer \
   --query 'Configuration.FunctionArn' \
   --output text --region $AWS_REGION)
 
-export COGNITO_DOMAIN=$(cd infra/envs/poc && terraform output -raw cognito_domain)
-export COGNITO_CLIENT_ID=$(cd infra/envs/poc && terraform output -raw cognito_client_id)
-export COGNITO_TOKEN_ENDPOINT="https://$COGNITO_DOMAIN/oauth2/token"
+export JWT_SECRET_ARN=$(cd infra/envs/poc && terraform output -raw authorizer_jwt_secret_arn)
 ```
 
 ## Step 1 — Create HTTP API
@@ -58,8 +56,8 @@ Repeat for health check route:
 
 1. **Authorization** → **Manage authorizers** → **Create**
 2. **Authorizer type**: Lambda
-3. **Name**: `cognito-jwt-authorizer`
-4. **Lambda function**: `max-weather-authorizer`
+3. **Name**: `hs256-jwt-authorizer`
+4. **Lambda function**: `poc-max-weather-authorizer`
    ```bash
    echo "Lambda ARN: $LAMBDA_ARN"
    ```
@@ -72,7 +70,7 @@ Repeat for health check route:
 ## Step 5 — Attach Authorizer to Route
 
 1. **Routes** → `ANY /weather/{proxy+}` → **Attach authorization**
-2. Select `cognito-jwt-authorizer`
+2. Select `hs256-jwt-authorizer`
 3. Click **Attach authorizer**
 
 > The `/healthz` route intentionally has NO authorizer (liveness check must be unauthenticated).
@@ -114,14 +112,11 @@ Repeat for health check route:
    echo "$INVOKE_URL" > docs/evidence/05-api-gateway/api-gateway-invoke-url.txt
    ```
 
-## Step 9 — Fetch Cognito Token and Test (Happy Path)
+## Step 9 — Issue HS256 Token and Test (Happy Path)
 
 ```bash
-TOKEN=$(curl -s -X POST "$COGNITO_TOKEN_ENDPOINT" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -u "$COGNITO_CLIENT_ID:$COGNITO_CLIENT_SECRET" \
-  -d "grant_type=client_credentials&scope=weather-api/read" \
-  | jq -r .access_token)
+# Issue a signed HS256 JWT (reads secret from Secrets Manager automatically)
+TOKEN=$(make issue-token)
 
 INVOKE_URL=$(cat docs/evidence/05-api-gateway/api-gateway-invoke-url.txt)
 
@@ -130,6 +125,15 @@ curl -sf -H "Authorization: Bearer $TOKEN" \
 ```
 
 Expected: HTTP 200, JSON with `current_weather.temperature` field.
+
+Alternatively, issue the token manually:
+```bash
+JWT_SECRET=$(aws secretsmanager get-secret-value \
+  --secret-id "$JWT_SECRET_ARN" \
+  --query SecretString --output text --region $AWS_REGION)
+
+TOKEN=$(scripts/issue-token.sh)
+```
 
 ## Step 10 — Test Without Token (Negative)
 
@@ -145,11 +149,11 @@ Expected: `401` (Unauthorized — authorizer denies).
 | Symptom | Cause | Fix |
 |---|---|---|
 | HTTP 502 | NLB unreachable or pod crash | Check `kubectl get pods -n weather-staging`, verify NLB DNS |
-| HTTP 401 | Token expired or wrong scope | Re-fetch token; verify scope `weather-api/read` |
+| HTTP 401 | Token expired or wrong scope | Re-issue token via `make issue-token`; verify scope `weather-api/read` |
 | HTTP 403 | Authorizer attached wrong route | Verify route `ANY /weather/{proxy+}` has authorizer |
-| HTTP 500 | Lambda authorizer crash | Check CloudWatch `/aws/lambda/max-weather-authorizer` |
+| HTTP 500 | Lambda authorizer crash | Check CloudWatch `/aws/lambda/poc-max-weather-authorizer`; verify `JWT_SECRET_ARN` env var set on function |
 | HTTP 404 | Route mismatch | Verify route key is `ANY /weather/{proxy+}` with `+` greedy match |
-| Token empty | Wrong client_id/secret or scope | Verify Cognito app client has `weather-api/read` scope allowed |
+| Token rejected | Wrong secret or expired | Confirm secret ARN in Lambda env var matches `terraform output authorizer_jwt_secret_arn` |
 
 ## Rollback
 

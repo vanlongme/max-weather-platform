@@ -37,12 +37,14 @@ trap cleanup EXIT
 
 log "Phase 3: Running k6 load test"
 NLB_URL="${NLB_URL:-${INVOKE_URL:-}}"
+if [[ -z "${K6_AUTH_TOKEN:-}" ]]; then
+  log "K6_AUTH_TOKEN not set — fetching via make issue-token"
+  K6_AUTH_TOKEN=$(make issue-token) || { log "ERROR: make issue-token failed"; exit 1; }
+fi
 k6 run \
   --summary-export="$EVIDENCE_DIR/k6-summary.json" \
   -e NLB_URL="$NLB_URL" \
-  -e COGNITO_CLIENT_ID="${COGNITO_CLIENT_ID:-}" \
-  -e COGNITO_CLIENT_SECRET="${COGNITO_CLIENT_SECRET:-}" \
-  -e COGNITO_TOKEN_ENDPOINT="${COGNITO_TOKEN_ENDPOINT:-}" \
+  -e K6_AUTH_TOKEN="$K6_AUTH_TOKEN" \
   tests/load/weather-load.js \
   2>&1 | tee "$EVIDENCE_DIR/run.log"
 
