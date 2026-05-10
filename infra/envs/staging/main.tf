@@ -28,17 +28,6 @@ module "networking" {
   tags                 = local.common_tags
 }
 
-module "iam" {
-  source = "../../modules/iam"
-
-  cluster_name      = var.cluster_name
-  aws_region        = var.aws_region
-  aws_account_id    = data.aws_caller_identity.current.account_id
-  oidc_provider_arn = var.oidc_provider_arn
-  oidc_provider_url = var.oidc_provider_url
-  tags              = local.common_tags
-}
-
 module "ecr" {
   source = "../../modules/ecr"
 
@@ -61,33 +50,34 @@ module "secrets" {
   tags         = local.common_tags
 }
 
-module "eks_cluster" {
-  source = "../../modules/eks-cluster"
+module "eks" {
+  source = "../../modules/eks"
 
   cluster_name           = var.cluster_name
   cluster_version        = var.eks_cluster_version
-  cluster_role_arn       = module.iam.eks_cluster_role_arn
-  subnet_ids             = concat(module.networking.public_subnet_ids, module.networking.private_subnet_ids)
+  vpc_id                 = module.networking.vpc_id
+  subnet_ids             = module.networking.private_subnet_ids
   allowed_cidrs          = var.allowed_cidrs
   operator_principal_arn = data.aws_caller_identity.current.arn
   jenkins_role_arn       = module.iam.jenkins_role_arn
+  node_instance_types    = var.node_instance_types
+  node_min_size          = var.node_min_size
+  node_max_size          = var.node_max_size
+  node_desired_size      = var.node_desired_size
   tags                   = local.common_tags
 
-  depends_on = [module.cloudwatch, module.networking, module.iam]
+  depends_on = [module.cloudwatch, module.networking]
 }
 
-module "eks_nodegroup" {
-  source = "../../modules/eks-nodegroup"
+module "iam" {
+  source = "../../modules/iam"
 
-  cluster_name       = module.eks_cluster.cluster_name
-  node_role_arn      = module.iam.eks_node_role_arn
-  private_subnet_ids = module.networking.private_subnet_ids
-  min_size           = var.node_min_size
-  max_size           = var.node_max_size
-  desired_size       = var.node_desired_size
-  tags               = local.common_tags
-
-  depends_on = [module.eks_cluster]
+  cluster_name      = var.cluster_name
+  aws_region        = var.aws_region
+  aws_account_id    = data.aws_caller_identity.current.account_id
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+  tags              = local.common_tags
 }
 
 module "namespaces" {
@@ -95,7 +85,7 @@ module "namespaces" {
 
   cluster_name = var.cluster_name
 
-  depends_on = [module.eks_nodegroup]
+  depends_on = [module.eks]
 }
 
 module "jenkins" {

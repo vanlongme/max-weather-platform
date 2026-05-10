@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Full ordered teardown of Max Weather infrastructure.
-# 9 phases: confirmation, app, LB wait, helm, namespaces, manual API GW,
-#           terraform destroy, bootstrap (optional), cloud-nuke verify, report.
+# 10 phases: confirmation, app, LB wait, karpenter drain, helm, namespaces,
+#            manual API GW, terraform destroy, bootstrap (optional),
+#            cloud-nuke verify, report.
 set -euo pipefail
 
 REGION="${REGION:-us-east-1}"
@@ -24,7 +25,7 @@ echo "       MAX WEATHER - FULL INFRASTRUCTURE TEARDOWN          "
 echo "============================================================"
 echo ""
 echo "This will destroy ALL max-weather infrastructure including:"
-echo "  - EKS cluster and all workloads"
+echo "  - EKS cluster and all workloads (incl. Karpenter-provisioned nodes)"
 echo "  - VPC, subnets, NAT Gateway, NLB"
 echo "  - ECR repositories and images"
 echo "  - Cognito User Pool and clients"
@@ -63,8 +64,21 @@ if [[ -n "$LB_CHECK" ]]; then
   sleep 60
 fi
 
-# Phase 3: Helm Releases
-log "Phase 3: Uninstalling Helm releases"
+# Phase 3: Drain Karpenter-provisioned nodes BEFORE uninstalling the controller.
+# If we uninstall karpenter first, the in-flight EC2 instances become orphans
+# that AWS bills for indefinitely. Deleting NodePools triggers graceful drain.
+log "Phase 3: Draining Karpenter-provisioned nodes (delete NodePool/EC2NodeClass)"
+if kubectl config current-context &>/dev/null; then
+  kubectl delete nodepool --all --ignore-not-found --timeout=180s 2>/dev/null \
+    || warn "nodepool delete had issues (CRD may not exist)"
+  kubectl delete ec2nodeclass --all --ignore-not-found --timeout=60s 2>/dev/null \
+    || warn "ec2nodeclass delete had issues (CRD may not exist)"
+  log "Waiting 60s for Karpenter to terminate provisioned EC2 instances..."
+  sleep 60
+fi
+
+# Phase 4: Helm Releases (karpenter LAST so it can process node deletions above).
+log "Phase 4: Uninstalling Helm releases"
 HELM_RELEASES=(
   "ingress-nginx:ingress-nginx"
   "aws-load-balancer-controller:kube-system"
@@ -72,6 +86,7 @@ HELM_RELEASES=(
   "fluent-bit:amazon-cloudwatch"
   "external-secrets:external-secrets"
   "metrics-server:kube-system"
+  "karpenter:kube-system"
 )
 if kubectl config current-context &>/dev/null; then
   for entry in "${HELM_RELEASES[@]}"; do
@@ -81,8 +96,8 @@ if kubectl config current-context &>/dev/null; then
   done
 fi
 
-# Phase 4: Namespaces
-log "Phase 4: Deleting Kubernetes namespaces"
+# Phase 5: Namespaces
+log "Phase 5: Deleting Kubernetes namespaces"
 if kubectl config current-context &>/dev/null; then
   kubectl delete ns \
     "$NAMESPACE_STAGING" "$NAMESPACE_PROD" \
@@ -90,8 +105,8 @@ if kubectl config current-context &>/dev/null; then
     --ignore-not-found --timeout=120s 2>/dev/null || warn "Namespace deletion had issues"
 fi
 
-# Phase 5: Manual API Gateway
-log "Phase 5: Manual API Gateway deletion required"
+# Phase 6: Manual API Gateway
+log "Phase 6: Manual API Gateway deletion required"
 echo ""
 echo "  +-------------------------------------------------------+"
 echo "  | ACTION REQUIRED: Delete API Gateway manually          |"
@@ -107,23 +122,23 @@ if [[ "$AGW_CONFIRM" == "skip" ]]; then
   warn "Skipping API Gateway deletion - remember to delete manually"
 fi
 
-# Phase 6: Terraform Destroy
-log "Phase 6: Running terraform destroy for staging environment"
+# Phase 7: Terraform Destroy
+log "Phase 7: Running terraform destroy for staging environment"
 (cd "$STAGING_DIR" && terraform init -reconfigure -input=false) || warn "Terraform init failed"
 (cd "$STAGING_DIR" && terraform destroy -auto-approve \
   2>&1 | tee ../../docs/evidence/09-teardown/terraform-destroy.log) \
   || warn "Terraform destroy had errors - check docs/evidence/09-teardown/terraform-destroy.log"
 
-# Phase 7: Bootstrap (Optional)
-log "Phase 7: Bootstrap teardown (optional)"
+# Phase 8: Bootstrap (Optional)
+log "Phase 8: Bootstrap teardown (optional)"
 echo ""
 echo "  To also delete the Terraform state S3 bucket and DynamoDB table:"
 echo "    cd infra/bootstrap && terraform destroy -auto-approve"
 echo ""
 echo "  WARNING: Only do this if you are sure no other state files use this backend."
 
-# Phase 8: Cloud-Nuke Verification
-log "Phase 8: Running cloud-nuke dry-run to check for orphaned resources"
+# Phase 9: Cloud-Nuke Verification
+log "Phase 9: Running cloud-nuke dry-run to check for orphaned resources"
 if [[ -x "./cloud-nuke_linux_amd64" ]]; then
   ./cloud-nuke_linux_amd64 aws --region "$REGION" --config .cloud-nuke.yaml --dry-run \
     2>&1 | tee docs/evidence/09-teardown/cloud-nuke-dry.log || true
@@ -137,7 +152,7 @@ else
   warn "cloud-nuke_linux_amd64 binary not found - skipping orphan check"
 fi
 
-# Phase 9: Final Report
+# Phase 10: Final Report
 END_TIME=$(date +%s)
 ELAPSED=$(( END_TIME - START_TIME ))
 

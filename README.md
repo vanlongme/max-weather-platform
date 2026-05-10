@@ -99,11 +99,10 @@ make verify-evidence
 │   │   └── prod/                # Production environment composition
 │   └── modules/                 # Reusable Terraform modules (AWS resources only)
 │       ├── networking/          # VPC, subnets, NAT, route tables
-│       ├── eks-cluster/         # EKS control plane + IRSA
-│       ├── eks-nodegroup/       # Managed node groups
+│       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 20.24 + Karpenter sub-module (IAM, SQS, instance profile)
 │       ├── ecr/                 # Container registries
 │       ├── cognito/             # User Pool, App Client, Resource Server
-│       ├── iam/                 # Service-account IAM roles (IRSA) for all addons
+│       ├── iam/                 # Jenkins IAM + IRSA roles (cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)
 │       ├── secrets/             # Secrets Manager seed values
 │       ├── jenkins/             # CI host (EC2 + Docker)
 │       ├── cloudwatch/          # Log groups
@@ -119,7 +118,8 @@ make verify-evidence
 │       ├── fluent-bit/
 │       ├── aws-lb-controller/
 │       ├── external-secrets/
-│       └── metrics-server/
+│       ├── metrics-server/
+│       └── karpenter/           # Karpenter v1.6.0 chart values + EC2NodeClass + NodePool
 ├── ci/                          # Jenkins README
 ├── docs/
 │   ├── architecture.drawio      # Source diagram
@@ -231,6 +231,26 @@ kubectl logs -n weather-staging -l app=weather-api --tail=100 -f
 aws logs tail /aws/eks/max-weather/application --follow --region us-east-1
 ```
 
+## Cluster Autoscaling: Cluster Autoscaler + Karpenter
+
+The cluster runs **both** node autoscalers side-by-side, with strict separation of duties:
+
+| Autoscaler | Manages | Why both? |
+|------------|---------|-----------|
+| **Cluster Autoscaler** (`9.37.0`) | The static `general` Managed Node Group (min 2, max 10 t3.medium) that hosts system pods (kube-system, ingress-nginx, autoscalers themselves) | Provides a stable baseline so cluster-critical pods always have somewhere to land, including Karpenter's controller itself |
+| **Karpenter** (`v1.6.0`) | All other workload pods via `NodePool` / `EC2NodeClass` (on-demand t3.medium-large, AL2023) | Faster scale-up (~30s vs ~3min), bin-packing, and consolidation — ideal for the bursty `weather-api` HPA |
+
+**Coexistence mechanism**: Karpenter's `NodePool` taints every node it provisions with `karpenter.sh/provisioned=true:NoSchedule`. The Karpenter controller pod uses `nodeSelector: role=general` to pin itself onto the Managed Node Group, breaking the chicken-and-egg problem. Cluster Autoscaler ignores tainted nodes; Karpenter ignores the Managed Node Group.
+
+**AWS scaffolding** (provisioned by `infra/modules/eks` via the upstream `terraform-aws-modules/eks/aws//modules/karpenter` sub-module):
+
+- IAM role `<cluster>-karpenter-controller` (IRSA) — controller permissions
+- IAM role `<cluster>-karpenter-node` + EC2 instance profile — assumed by provisioned instances
+- SQS queue `<cluster>-karpenter` — receives EC2 spot interruption / health events
+- EventBridge rules forwarding instance-state events into the queue
+
+The Helm chart and Kubernetes objects (`NodePool`, `EC2NodeClass`) live in `k8s/helm/karpenter/` and are installed by `scripts/install-helm-addons.sh` step 7. The `EC2NodeClass.role` field references the IAM role name above via envsubst (`${KARPENTER_NODE_IAM_ROLE_NAME}`), so renaming the cluster automatically renames the role and the EC2NodeClass stays in sync. See `k8s/helm/README.md` for the full env-var contract.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -252,17 +272,18 @@ Single command, ordered to avoid leaving orphans:
 make teardown
 ```
 
-This runs `scripts/teardown.sh` which:
+This runs `scripts/teardown.sh` which executes 10 phases in order:
 
 1. Confirms intent (operator must type `destroy max-weather`).
 2. `kubectl delete -k k8s/overlays/{staging,prod}` to remove ingress (triggers NLB cleanup).
-3. Sleeps 60s for AWS Load Balancer Controller to delete target groups.
-4. `helm uninstall` for ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server.
-5. `kubectl delete ns` for application and system namespaces.
-6. Prompts for manual API Gateway deletion (it was created out-of-band per `docs/api-gateway-runbook.md`).
-7. `terraform destroy -auto-approve` in `infra/envs/staging`.
-8. Optional: cloud-nuke dry-run to surface any orphaned resources.
-9. Prints elapsed time and savings.
+3. Drains Karpenter-provisioned nodes by deleting `NodePool`/`EC2NodeClass`/`NodeClaim` so Karpenter terminates EC2 before its IAM role disappears.
+4. Sleeps 60s for AWS Load Balancer Controller to delete target groups.
+5. `helm uninstall` for all 7 releases: ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server, Karpenter (Karpenter last, after its workloads drain).
+6. `kubectl delete ns` for application and system namespaces.
+7. Prompts for manual API Gateway deletion (it was created out-of-band per `docs/api-gateway-runbook.md`).
+8. `terraform destroy -auto-approve` in `infra/envs/staging` (destroys EKS, Karpenter SQS/IAM, VPC, etc.).
+9. Optional: cloud-nuke dry-run to surface any orphaned resources.
+10. Prints elapsed time and savings.
 
 For state-backend cleanup (rare):
 
