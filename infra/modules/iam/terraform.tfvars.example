@@ -10,3 +10,39 @@ tags = {
   Environment = "poc"
   ManagedBy   = "terraform"
 }
+
+# irsa_roles defaults provide jenkins, cluster-autoscaler, fluent-bit,
+# aws-lb-controller, external-secrets. The variable is the authoritative
+# map — setting it replaces the defaults entirely. Override or extend like:
+#
+# irsa_roles = {
+#   jenkins = {
+#     namespace        = "jenkins"
+#     service_account  = "jenkins"
+#     role_name_suffix = "jenkins"
+#     policy_json = jsonencode({
+#       Version = "2012-10-17"
+#       Statement = [
+#         { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
+#         {
+#           Effect   = "Allow"
+#           Action   = ["lambda:UpdateFunctionCode", "lambda:GetFunction"]
+#           Resource = "arn:aws:lambda:__AWS_REGION__:__AWS_ACCOUNT_ID__:function:__CLUSTER_NAME__-*"
+#         },
+#       ]
+#     })
+#   }
+#   cluster-autoscaler = { namespace = "kube-system",       service_account = "cluster-autoscaler",           policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }) }
+#   fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }) }
+#   aws-lb-controller  = { namespace = "kube-system",       service_account = "aws-load-balancer-controller", policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }), role_name_suffix = "aws-lb-controller" }
+#   external-secrets   = { namespace = "external-secrets",  service_account = "external-secrets",             policy_json = jsonencode({ Version = "2012-10-17", Statement = [] }) }
+#
+#   custom = {
+#     namespace       = "default"
+#     service_account = "my-app"
+#     policy_json = jsonencode({
+#       Version = "2012-10-17"
+#       Statement = [{ Effect = "Allow", Action = ["s3:GetObject"], Resource = "arn:aws:s3:::__CLUSTER_NAME__-bucket/*" }]
+#     })
+#   }
+# }

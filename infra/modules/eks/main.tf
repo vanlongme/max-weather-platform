@@ -53,40 +53,25 @@ module "eks" {
           }
         }
       }
-    }
+    },
+    var.access_entries,
   )
 
-  cluster_addons = {
-    coredns                = {}
-    kube-proxy             = {}
-    vpc-cni                = { before_compute = true }
-    eks-pod-identity-agent = { before_compute = true }
-  }
+  cluster_addons = var.cluster_addons
 
-  eks_managed_node_group_defaults = {
-    ami_type                              = "AL2023_x86_64_STANDARD"
-    capacity_type                         = "ON_DEMAND"
-    disk_size                             = var.node_disk_size
-    attach_cluster_primary_security_group = false
-  }
+  eks_managed_node_group_defaults = var.eks_managed_node_group_defaults
 
   eks_managed_node_groups = {
-    general = {
-      name           = "${var.cluster_name}-general"
-      instance_types = var.node_instance_types
-      min_size       = var.node_min_size
-      max_size       = var.node_max_size
-      desired_size   = var.node_desired_size
-
-      labels = {
-        role = "general"
+    for k, v in var.eks_managed_node_groups : k => merge(
+      v,
+      {
+        name = coalesce(v.name, "${var.cluster_name}-${k}")
+        tags = merge(var.tags, v.tags, {
+          "k8s.io/cluster-autoscaler/enabled"             = "true"
+          "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
+        })
       }
-
-      tags = merge(var.tags, {
-        "k8s.io/cluster-autoscaler/enabled"             = "true"
-        "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
-      })
-    }
+    )
   }
 
   node_security_group_tags = merge(var.tags, {

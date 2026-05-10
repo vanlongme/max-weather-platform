@@ -40,34 +40,55 @@ variable "jenkins_role_arn" {
   default     = ""
 }
 
-variable "node_instance_types" {
-  description = "EC2 instance types for the default managed node group (system + cluster-autoscaler workloads)."
-  type        = list(string)
-  default     = ["t3.medium"]
+variable "eks_managed_node_groups" {
+  description = "Map of EKS managed node group definitions, keyed by node group name. Each entry is passed through to the upstream eks_managed_node_groups input."
+  type = map(object({
+    name           = optional(string)
+    instance_types = optional(list(string), ["t3.medium"])
+    min_size       = optional(number, 2)
+    max_size       = optional(number, 10)
+    desired_size   = optional(number, 2)
+    capacity_type  = optional(string, "ON_DEMAND")
+    ami_type       = optional(string, "AL2023_x86_64_STANDARD")
+    disk_size      = optional(number, 20)
+    labels         = optional(map(string), {})
+    taints         = optional(map(object({ key = string, value = optional(string), effect = string })), {})
+    tags           = optional(map(string), {})
+  }))
+  default = {
+    general = {
+      instance_types = ["t3.medium"]
+      min_size       = 2
+      max_size       = 10
+      desired_size   = 2
+      labels         = { role = "general" }
+    }
+  }
 }
 
-variable "node_min_size" {
-  description = "Minimum nodes in the default managed node group."
-  type        = number
-  default     = 2
+variable "eks_managed_node_group_defaults" {
+  description = "Defaults applied to every managed node group. Per-group overrides win."
+  type        = any
+  default = {
+    attach_cluster_primary_security_group = false
+  }
 }
 
-variable "node_max_size" {
-  description = "Maximum nodes in the default managed node group (cluster-autoscaler upper bound)."
-  type        = number
-  default     = 10
+variable "cluster_addons" {
+  description = "Map of EKS add-ons to enable. Passed through to the upstream cluster_addons input."
+  type        = any
+  default = {
+    coredns                = {}
+    kube-proxy             = {}
+    vpc-cni                = { before_compute = true }
+    eks-pod-identity-agent = { before_compute = true }
+  }
 }
 
-variable "node_desired_size" {
-  description = "Initial desired node count in the default managed node group."
-  type        = number
-  default     = 2
-}
-
-variable "node_disk_size" {
-  description = "Root EBS volume size in GiB for nodes in the default managed node group."
-  type        = number
-  default     = 20
+variable "access_entries" {
+  description = "Additional access entries merged after operator + jenkins entries derived from operator_principal_arn / jenkins_role_arn. User-supplied entries win on key collision."
+  type        = any
+  default     = {}
 }
 
 variable "tags" {

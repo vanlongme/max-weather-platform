@@ -1,31 +1,21 @@
-resource "aws_secretsmanager_secret" "cognito_client_secret" {
-  name                    = "/${var.cluster_name}/cognito/client-secret"
-  description             = "Cognito app client secret for weather-api OAuth2."
-  recovery_window_in_days = 7
-  tags                    = merge(var.tags, { Name = "${var.cluster_name}-cognito-client-secret" })
-}
+resource "aws_secretsmanager_secret" "secrets" {
+  for_each = var.secrets
 
-resource "aws_secretsmanager_secret_version" "cognito_client_secret" {
-  secret_id     = aws_secretsmanager_secret.cognito_client_secret.id
-  secret_string = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
-  lifecycle {
-    ignore_changes = [secret_string] # managed externally after Cognito apply
-  }
-}
+  name                    = replace(each.value.name, "__CLUSTER_NAME__", var.cluster_name)
+  description             = each.value.description
+  recovery_window_in_days = each.value.recovery_window_in_days
 
-resource "aws_secretsmanager_secret" "app_config" {
-  name                    = "/${var.cluster_name}/app/config"
-  description             = "weather-api application runtime configuration."
-  recovery_window_in_days = 7
-  tags                    = merge(var.tags, { Name = "${var.cluster_name}-app-config" })
-}
-
-resource "aws_secretsmanager_secret_version" "app_config" {
-  secret_id = aws_secretsmanager_secret.app_config.id
-  secret_string = jsonencode({
-    OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1"
-    PORT                = "3000"
+  tags = merge(var.tags, {
+    Name = replace(each.value.name, "__CLUSTER_NAME__", var.cluster_name)
   })
+}
+
+resource "aws_secretsmanager_secret_version" "secrets" {
+  for_each = { for k, v in var.secrets : k => v if v.initial_value != null }
+
+  secret_id     = aws_secretsmanager_secret.secrets[each.key].id
+  secret_string = each.value.initial_value
+
   lifecycle {
     ignore_changes = [secret_string]
   }

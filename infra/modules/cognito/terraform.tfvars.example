@@ -3,6 +3,20 @@ domain_prefix = "max-weather-UNIQUE-SUFFIX"
 
 resource_server_identifier = "weather-api"
 
+# Default: a single weather-api client with client_credentials flow.
+# Supplying app_clients REPLACES the default map entirely.
+app_clients = {
+  weather_api = {
+    name_suffix = "weather-api"
+  }
+
+  # Example: add a second client for an analytics consumer.
+  # analytics = {
+  #   name_suffix          = "analytics"
+  #   allowed_oauth_scopes = ["weather-api/read"]
+  # }
+}
+
 tags = {
   Project     = "max-weather"
   Environment = "poc"

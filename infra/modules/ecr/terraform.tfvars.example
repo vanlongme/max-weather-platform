@@ -1,7 +1,10 @@
-repositories = [
-  "max-weather-api",
-  "max-weather-lambda-authorizer",
-]
+repositories = {
+  "max-weather-api" = {}
+  "max-weather-lambda-authorizer" = {
+    keep_tagged_image_count    = 5
+    untagged_image_expiry_days = 14
+  }
+}
 
 image_tag_mutability       = "MUTABLE"
 scan_on_push               = true
