@@ -1,0 +1,126 @@
+## jenkinsci/jenkins Helm chart values.
+## Chart: jenkinsci/jenkins (latest fetched at install time by
+##   scripts/install-helm-addons.sh — see HELM_INSTALL invocation)
+## Pinned via JENKINS_CHART_VERSION env (default: latest).
+##
+## envsubst variables consumed:
+##   ${JENKINS_IRSA_ROLE_ARN}  - terraform output: jenkins_role_arn
+##                                (IRSA role; trust = OIDC ServiceAccount)
+##   ${CLUSTER_NAME}           - terraform output: cluster_name (used in tags)
+##
+## POC choices:
+##   - controller.serviceType=ClusterIP + Ingress class=nginx
+##     (avoids spinning a second NLB; reuses the public NLB created by
+##      the nginx-ingress chart). Host left empty -> matches any.
+##   - admin password auto-generated; retrieve via:
+##       kubectl -n jenkins get secret jenkins -o jsonpath='{.data.jenkins-admin-password}' | base64 -d
+##   - persistence enabled (8Gi gp3) so jobs/credentials survive pod
+##     rescheduling; this is a POC default — production would size up.
+##   - serviceAccount.annotations binds the existing IAM role (was the
+##     EC2 instance profile in the deleted Terraform jenkins module) to
+##     the Jenkins controller pod via IRSA.
+##   - agent.enabled=false: this POC uses inbound k8s agents launched
+##     per-build, not a static agent pool. The kubernetes plugin (bundled
+##     in the chart's installPlugins list) handles dynamic provisioning.
+
+controller:
+  componentName: jenkins-controller
+  image:
+    registry: docker.io
+    repository: jenkins/jenkins
+    # tag: omit -> chart-default (matches chart's appVersion)
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  jenkinsUrlProtocol: http
+  serviceType: ClusterIP
+  servicePort: 8080
+  targetPort: 8080
+
+  # Surface the Jenkins UI through the existing public NLB created by
+  # the nginx-ingress chart, instead of provisioning a second LB.
+  ingress:
+    enabled: true
+    apiVersion: networking.k8s.io/v1
+    ingressClassName: nginx
+    paths:
+      - path: /
+        pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+
+  # Bundled plugin list — keep small; add via JCasC or UI as needed.
+  installPlugins:
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+    - configuration-as-code:latest
+    - amazon-ecr:latest
+    - aws-credentials:latest
+    - pipeline-stage-view:latest
+    - blueocean:latest
+
+  installLatestPlugins: true
+  installLatestSpecifiedPlugins: true
+
+  # Disable the built-in test of cluster connectivity at install time —
+  # it requires the Jenkins SA to already exist, which is created in
+  # the same Helm release.
+  testEnabled: false
+
+  prometheus:
+    enabled: false
+
+  # Probes — chart defaults are aggressive for a slow boot; relax.
+  probes:
+    startupProbe:
+      failureThreshold: 30
+      periodSeconds: 10
+    livenessProbe:
+      initialDelaySeconds: 90
+      periodSeconds: 30
+      failureThreshold: 5
+    readinessProbe:
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      failureThreshold: 5
+
+agent:
+  # Static agent pool disabled — kubernetes plugin spins ephemeral pods
+  # per build under the same ServiceAccount.
+  enabled: false
+
+persistence:
+  enabled: true
+  storageClass: gp3
+  size: 8Gi
+  accessMode: ReadWriteOnce
+
+serviceAccount:
+  create: true
+  name: jenkins
+  annotations:
+    # IRSA: pod assumes this role via the OIDC trust policy in
+    # infra/modules/iam (jenkins role).
+    eks.amazonaws.com/role-arn: ${JENKINS_IRSA_ROLE_ARN}
+
+# Per-namespace SA used by the kubernetes plugin to launch build agents.
+serviceAccountAgent:
+  create: true
+  name: jenkins-agent
+
+rbac:
+  create: true
+  readSecrets: false
+
+# Tags propagated onto persistent volumes etc. via cloud labels.
+controller.podLabels:
+  app.kubernetes.io/part-of: ${CLUSTER_NAME}
