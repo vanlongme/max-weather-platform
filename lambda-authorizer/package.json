@@ -1,0 +1,19 @@
+{
+  "name": "max-weather-authorizer",
+  "version": "1.0.0",
+  "description": "Lambda TOKEN authorizer — JWT verification against Cognito JWKS",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest --forceExit"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
