@@ -4,7 +4,7 @@ variable "name" {
 }
 
 variable "repositories" {
-  description = "Map of ECR repositories to create, keyed by short name. Each value is an object with optional per-repo overrides; when an override is null the module-level default applies. Final repository name is <var.name>-<key>-repo (e.g. key 'api' with var.name 'poc-max-weather' produces 'poc-max-weather-api-repo'). The default map creates 'api', 'lambda-authorizer', and 'base-nodejs' repositories."
+  description = "Map of ECR repositories to create, keyed by short name. Each value is an object with optional per-repo overrides; when an override is null the module-level default applies. Final repository name is <var.name>-<key>-repo (e.g. key 'api' with var.name 'poc-max-weather' produces 'poc-max-weather-api-repo'). The default map creates 'api' and 'base-nodejs' repositories. Note: the lambda-authorizer is deployed as a ZIP package via the lambda module — no ECR repo required."
   type = map(object({
     image_tag_mutability       = optional(string)
     scan_on_push               = optional(bool)

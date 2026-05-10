@@ -9,13 +9,14 @@ Creates ECR repositories for the application container images, with vulnerabilit
 
 Each repository's final name is derived as `${var.name}-${key}-repo`, where `key` is the short identifier supplied in the `repositories` map. The same value is used for the `Name` tag.
 
-By default the module ships three repositories:
+By default the module ships two repositories:
 
 | Key | Final repository name (with `var.name = "poc-max-weather"`) |
 |-----|-------------------------------------------------------------|
-| `api`               | `poc-max-weather-api-repo` |
-| `lambda-authorizer` | `poc-max-weather-lambda-authorizer-repo` |
-| `base-nodejs`       | `poc-max-weather-base-nodejs-repo` |
+| `api`         | `poc-max-weather-api-repo`         |
+| `base-nodejs` | `poc-max-weather-base-nodejs-repo` |
+
+> Note: The `lambda-authorizer` ECR repository was removed from defaults — the Lambda authorizer is deployed as a ZIP package via the `lambda` module and does not use a container image.
 
 ## Usage
 
