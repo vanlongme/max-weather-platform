@@ -1,3 +1,13 @@
+output "eks_cluster_role_arn" {
+  description = "ARN of the EKS cluster control-plane IAM role."
+  value       = aws_iam_role.eks_cluster.arn
+}
+
+output "eks_cluster_role_name" {
+  description = "Name of the EKS cluster control-plane IAM role."
+  value       = aws_iam_role.eks_cluster.name
+}
+
 output "jenkins_role_arn" {
   description = "ARN of the Jenkins EC2 instance role."
   value       = aws_iam_role.jenkins.arn
