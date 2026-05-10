@@ -1,0 +1,12 @@
+[36mhelp                          [0m Show this help message
+[36minit                          [0m Initialize Terraform (all modules)
+[36mplan                          [0m Plan Terraform changes
+[36mapply                         [0m Apply Terraform changes
+[36mdestroy                       [0m Destroy Terraform infrastructure
+[36mbuild                         [0m Build application and containers
+[36mpush                          [0m Push container images to registry
+[36mdeploy-staging                [0m Deploy to staging environment
+[36mdeploy-prod                   [0m Deploy to production environment
+[36mtest                          [0m Run all tests
+[36mevidence                      [0m Generate evidence artifacts
+[36mnuke                          [0m Destroy all infrastructure and clean up

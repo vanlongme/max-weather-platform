@@ -1,42 +1,37 @@
-.PHONY: help preflight apply destroy validate lint test evidence gitleaks
+.PHONY: help init plan apply destroy build push deploy-staging deploy-prod test evidence nuke
 
-REGION ?= ap-southeast-1
-TF_DIR = terraform/envs/staging
+help: ## Show this help message
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+init: ## Initialize Terraform (all modules)
+	@echo "TODO: implement in later waves"
 
-preflight: ## Run AWS quota pre-flight checks
-	bash scripts/quota-preflight.sh
+plan: ## Plan Terraform changes
+	@echo "TODO: implement in later waves"
 
-apply: ## Apply Terraform (staging env)
-	cd $(TF_DIR) && terraform init && terraform apply -auto-approve
+apply: ## Apply Terraform changes
+	@echo "TODO: implement in later waves"
 
-destroy: ## Destroy all Terraform infrastructure + cleanup
-	@echo "=== Tear-down sequence ==="
-	@if [ -f scripts/apigw-setup.sh ] && [ -f docs/evidence/12-api-gateway/api-id.txt ]; then \
-	  API_ID=$$(cat docs/evidence/12-api-gateway/api-id.txt); \
-	  aws apigateway delete-rest-api --rest-api-id $$API_ID --region $(REGION) 2>/dev/null || true; \
-	fi
-	cd $(TF_DIR) && terraform destroy -auto-approve
-	@echo "=== Post-destroy verification ==="
-	aws eks list-clusters --region $(REGION) --output text
+destroy: ## Destroy Terraform infrastructure
+	@echo "TODO: implement in later waves"
 
-validate: ## Validate Terraform modules
-	cd terraform/envs/staging && terraform init -backend=false && terraform validate
-	cd terraform/envs/bootstrap && terraform init -backend=false && terraform validate
+build: ## Build application and containers
+	@echo "TODO: implement in later waves"
 
-lint: ## Run tflint
-	@command -v tflint || (curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash)
-	tflint --chdir=terraform/envs/staging
+push: ## Push container images to registry
+	@echo "TODO: implement in later waves"
 
-test: ## Run all tests (app + lambda)
-	cd app && npm test
-	cd lambda-authorizer && npm test
+deploy-staging: ## Deploy to staging environment
+	@echo "TODO: implement in later waves"
 
-evidence: ## Show evidence directory tree
-	find docs/evidence -maxdepth 2 | sort
+deploy-prod: ## Deploy to production environment
+	@echo "TODO: implement in later waves"
 
-gitleaks: ## Scan for secrets
-	@command -v gitleaks || (curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks 2>/dev/null || curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar -xz -C ./bin gitleaks)
-	gitleaks detect --source . --no-git
+test: ## Run all tests
+	@echo "TODO: implement in later waves"
+
+evidence: ## Generate evidence artifacts
+	@echo "TODO: implement in later waves"
+
+nuke: ## Destroy all infrastructure and clean up
+	@echo "TODO: implement in later waves"

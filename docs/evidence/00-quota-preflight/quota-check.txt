@@ -1,7 +1,0 @@
-=== AWS Quota Pre-flight (2026-05-09T09:15:08Z, region=ap-southeast-1) ===
-EKS clusters per region : limit=0 required>=1 : FAIL
-On-Demand standard vCPU : limit=0 required>=10 : FAIL
-VPCs per region         : used=0 limit=0 required>=1-free : FAIL
-Elastic IPs             : used=0 limit=0 required>=2-free : FAIL
-NAT GW per AZ           : limit=0 required>=1 : FAIL
-ALL QUOTAS OK
