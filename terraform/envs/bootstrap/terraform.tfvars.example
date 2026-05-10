@@ -1,4 +1,0 @@
-# Fill these before running bootstrap
-bucket_name         = "max-weather-tfstate-<your-aws-account-id>"
-dynamodb_table_name = "max-weather-tflock"
-region              = "ap-southeast-1"
