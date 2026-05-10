@@ -15,12 +15,12 @@ output "domain" {
 
 output "token_endpoint" {
   description = "Cognito OAuth2 token endpoint URL."
-  value       = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
+  value       = "${var.cognito_endpoint_scheme}://${aws_cognito_user_pool_domain.main.domain}${var.cognito_domain_suffix}.${data.aws_region.current.region}.${var.cognito_domain_root}${var.cognito_token_path}"
 }
 
 output "jwks_uri" {
   description = "Cognito JWKS URI for JWT validation."
-  value       = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.main.id}/.well-known/jwks.json"
+  value       = "${var.cognito_endpoint_scheme}://${var.cognito_idp_domain_prefix}.${data.aws_region.current.region}.${var.aws_dns_suffix}/${aws_cognito_user_pool.main.id}${var.jwks_path}"
 }
 
 output "client_ids" {
@@ -35,17 +35,17 @@ output "client_secrets" {
 }
 
 output "client_id" {
-  description = "Cognito app client ID for the weather-api client (back-compat alias for client_ids[\"weather_api\"])."
-  value       = aws_cognito_user_pool_client.app_clients["weather_api"].id
+  description = "Cognito app client ID for the weather-api client (back-compat alias for client_ids[var.primary_client_key])."
+  value       = aws_cognito_user_pool_client.app_clients[var.primary_client_key].id
 }
 
 output "client_secret" {
-  description = "Cognito app client secret for the weather-api client (back-compat alias for client_secrets[\"weather_api\"], sensitive)."
-  value       = aws_cognito_user_pool_client.app_clients["weather_api"].client_secret
+  description = "Cognito app client secret for the weather-api client (back-compat alias for client_secrets[var.primary_client_key], sensitive)."
+  value       = aws_cognito_user_pool_client.app_clients[var.primary_client_key].client_secret
   sensitive   = true
 }
 
 output "resource_server_scope" {
   description = "Full scope string for weather API read access."
-  value       = "${var.resource_server_identifier}/read"
+  value       = "${var.resource_server_identifier}${var.default_oauth_scope_suffix}"
 }

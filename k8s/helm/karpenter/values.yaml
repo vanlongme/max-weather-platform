@@ -3,16 +3,18 @@
 ## envsubst variables (sourced from terraform output by scripts/install-helm-addons.sh):
 ##   ${CLUSTER_NAME}              - terraform output: cluster_name
 ##   ${CLUSTER_ENDPOINT}          - terraform output: cluster_endpoint
-##   ${KARPENTER_IAM_ROLE_ARN}    - terraform output: karpenter_iam_role_arn
 ##   ${KARPENTER_QUEUE_NAME}      - terraform output: karpenter_queue_name
+##
+## Authentication: EKS Pod Identity (associated by the karpenter sub-module v21+).
+## No serviceAccount annotation is required; the IRSA `eks.amazonaws.com/role-arn`
+## annotation is incompatible with Pod Identity and was removed during the
+## terraform-aws-modules/eks v20->v21 upgrade.
 
 replicas: 2
 
 serviceAccount:
   create: true
   name: karpenter
-  annotations:
-    eks.amazonaws.com/role-arn: ${KARPENTER_IAM_ROLE_ARN}
 
 settings:
   clusterName: ${CLUSTER_NAME}
