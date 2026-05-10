@@ -98,7 +98,7 @@ make verify-evidence
 │   │   └── poc/                 # Single POC composition — hosts both weather-staging + weather-prod namespaces
 │   └── modules/                 # Reusable Terraform modules (each ships README.md + terraform.tfvars.example)
 │       ├── networking/          # VPC + public subnets + IGW (POC: no NAT/private subnets — see module README)
-│       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 20.24 + Karpenter sub-module (IAM, SQS, instance profile)
+│       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 21.20 + Karpenter sub-module (IAM, SQS, instance profile, Pod Identity)
 │       ├── ecr/                 # Container registries
 │       ├── cognito/             # User Pool, App Client, Resource Server
 │       ├── iam/                 # IRSA roles (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)

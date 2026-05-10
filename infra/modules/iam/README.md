@@ -23,13 +23,14 @@ The IRSA roles depend on the EKS OIDC provider, which is created by the EKS modu
 
 Terraform variable defaults cannot reference other variables, so the `jenkins` policy's `LambdaDeployAccess` Resource ARN uses literal placeholder tokens:
 
-| Placeholder         | Substituted with    |
-|---------------------|---------------------|
-| `__AWS_REGION__`    | `var.aws_region`    |
-| `__AWS_ACCOUNT_ID__`| `var.aws_account_id`|
-| `__CLUSTER_NAME__`  | `var.cluster_name`  |
+| Placeholder         | Substituted with                          |
+|---------------------|-------------------------------------------|
+| `__AWS_PARTITION__` | `data.aws_partition.current.partition`    |
+| `__AWS_REGION__`    | `var.aws_region`                          |
+| `__AWS_ACCOUNT_ID__`| `var.aws_account_id`                      |
+| `__CLUSTER_NAME__`  | `var.cluster_name`                        |
 
-`main.tf` performs nested `replace()` calls on `each.value.policy_json` at apply time. Custom roles you add via the `irsa_roles` map can use the same placeholders.
+`main.tf` performs nested `replace()` calls on `each.value.policy_json` at apply time. Custom roles you add via the `irsa_roles` map can use the same placeholders. `__AWS_PARTITION__` enables portability across `aws`, `aws-us-gov`, and `aws-cn` partitions without per-environment overrides.
 
 ## Usage
 
@@ -95,6 +96,19 @@ module "iam" {
 | `aws_account_id`    | AWS account ID for ARN construction.                                                                                                                              | `string`                                                                                        | —       |
 | `tags`              | Common tags applied to all resources.                                                                                                                             | `map(string)`                                                                                   | `{}`    |
 | `irsa_roles`        | Map of IRSA roles to create. Keyed by short name; each value defines `namespace`, `service_account`, `policy_json`, optional `role_name_suffix` (defaults to key).| `map(object({ namespace = string, service_account = string, policy_json = string, role_name_suffix = optional(string) }))` | 5 defaults (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets) |
+| `inline_policy_name_suffix` | Suffix appended to each IRSA role's map key to form the inline `aws_iam_role_policy` name. | `string` | `"-policy"` |
+| `partition_placeholder` | Literal placeholder substituted with `data.aws_partition.current.partition`. | `string` | `"__AWS_PARTITION__"` |
+| `region_placeholder` | Literal placeholder substituted with `var.aws_region`. | `string` | `"__AWS_REGION__"` |
+| `account_id_placeholder` | Literal placeholder substituted with `var.aws_account_id`. | `string` | `"__AWS_ACCOUNT_ID__"` |
+| `cluster_name_placeholder` | Literal placeholder substituted with `var.cluster_name`. | `string` | `"__CLUSTER_NAME__"` |
+| `irsa_assume_role_effect` | Effect on the IRSA assume-role policy statement. | `string` | `"Allow"` |
+| `irsa_assume_role_action` | Action on the IRSA assume-role policy statement. | `string` | `"sts:AssumeRoleWithWebIdentity"` |
+| `irsa_assume_role_principal_type` | Principal type on the IRSA assume-role policy statement. | `string` | `"Federated"` |
+| `irsa_assume_role_condition_test` | Condition test operator for both `:sub` and `:aud` claims. | `string` | `"StringEquals"` |
+| `irsa_assume_role_sub_suffix` | OIDC issuer URL suffix selecting the subject claim. | `string` | `":sub"` |
+| `irsa_assume_role_aud_suffix` | OIDC issuer URL suffix selecting the audience claim. | `string` | `":aud"` |
+| `irsa_assume_role_subject_prefix` | Prefix for the OIDC `:sub` claim (`system:serviceaccount:<ns>:<sa>`). | `string` | `"system:serviceaccount:"` |
+| `irsa_assume_role_audience` | Required value of the OIDC `:aud` claim. | `string` | `"sts.amazonaws.com"` |
 
 ## Outputs
 

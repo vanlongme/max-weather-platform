@@ -55,6 +55,18 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | `enable_dns_hostnames` | Enable DNS hostnames in the VPC. | `bool` | `true` | no |
 | `enable_dns_support` | Enable DNS support in the VPC. | `bool` | `true` | no |
 | `tags` | Common tags applied to all resources. | `map(string)` | `{}` | no |
+| `vpc_name_suffix` | Suffix appended to `var.cluster_name` for the VPC `Name` tag. | `string` | `"-vpc"` | no |
+| `internet_gateway_name_suffix` | Suffix appended to `var.cluster_name` for the IGW `Name` tag. | `string` | `"-igw"` | no |
+| `public_subnet_name_prefix` | Prefix appended to `var.cluster_name` (followed by AZ name) for each public subnet's `Name` tag. | `string` | `"-public-"` | no |
+| `public_route_table_name_suffix` | Suffix appended to `var.cluster_name` for the public route table `Name` tag. | `string` | `"-public-rt"` | no |
+| `map_public_ip_on_launch` | Whether public subnets assign a public IPv4 to instances launched into them. | `bool` | `true` | no |
+| `public_route_destination_cidr_block` | Destination CIDR for the default route in the public route table. | `string` | `"0.0.0.0/0"` | no |
+| `subnet_tag_role_elb_key` | Tag key for AWS LB Controller internet-facing LB subnet discovery. | `string` | `"kubernetes.io/role/elb"` | no |
+| `subnet_tag_role_internal_elb_key` | Tag key for AWS LB Controller internal LB subnet discovery. | `string` | `"kubernetes.io/role/internal-elb"` | no |
+| `subnet_tag_role_elb_value` | Value for both `kubernetes.io/role/elb` and `kubernetes.io/role/internal-elb`. | `string` | `"1"` | no |
+| `subnet_tag_cluster_key_prefix` | Prefix for the EKS subnet discovery tag (cluster name appended). | `string` | `"kubernetes.io/cluster/"` | no |
+| `subnet_tag_cluster_value` | Value for the `kubernetes.io/cluster/<cluster_name>` tag. | `string` | `"shared"` | no |
+| `subnet_tag_karpenter_discovery_key` | Tag key consumed by Karpenter `EC2NodeClass.subnetSelectorTerms`. | `string` | `"karpenter.sh/discovery"` | no |
 
 ## Outputs
 
@@ -71,7 +83,7 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | Name | Version |
 |------|---------|
 | terraform | `>= 1.9, < 2.0` |
-| aws | `~> 5.60` |
+| aws | `~> 6.0` |
 
 ## Promoting to a Production Topology
 

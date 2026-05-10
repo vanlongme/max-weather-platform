@@ -130,7 +130,7 @@ variable "log_groups" {
 }
 
 variable "ecr_repositories" {
-  description = "Map of ECR repositories to create, keyed by full repository name. Each value carries optional per-repo lifecycle overrides."
+  description = "Map of ECR repositories to create, keyed by full repository name. Repository keys may include the literal placeholder __CLUSTER_NAME__ which the ecr module substitutes with var.cluster_name at apply time. Each value carries optional per-repo lifecycle overrides."
   type = map(object({
     image_tag_mutability       = optional(string)
     scan_on_push               = optional(bool)
@@ -139,8 +139,8 @@ variable "ecr_repositories" {
     tag_prefix_list            = optional(list(string), ["staging-", "prod-"])
   }))
   default = {
-    "max-weather-api"               = {}
-    "max-weather-lambda-authorizer" = {}
+    "__CLUSTER_NAME__-api"               = {}
+    "__CLUSTER_NAME__-lambda-authorizer" = {}
   }
 }
 

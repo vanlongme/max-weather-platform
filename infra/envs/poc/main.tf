@@ -1,13 +1,3 @@
-data "aws_caller_identity" "current" {}
-
-locals {
-  common_tags = {
-    Project     = "max-weather"
-    Environment = "poc"
-    ManagedBy   = "terraform"
-  }
-}
-
 module "cloudwatch" {
   source = "../../modules/cloudwatch"
 
@@ -30,6 +20,7 @@ module "networking" {
 module "ecr" {
   source = "../../modules/ecr"
 
+  cluster_name = var.cluster_name
   repositories = var.ecr_repositories
   tags         = local.common_tags
 }

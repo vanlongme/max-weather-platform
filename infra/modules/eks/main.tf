@@ -1,54 +1,48 @@
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.24"
+  version = "~> 21.20"
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
+  name               = var.cluster_name
+  kubernetes_version = var.cluster_version
 
   vpc_id                   = var.vpc_id
   subnet_ids               = var.subnet_ids
   control_plane_subnet_ids = var.subnet_ids
 
-  cluster_endpoint_public_access       = true
-  cluster_endpoint_private_access      = true
-  cluster_endpoint_public_access_cidrs = var.allowed_cidrs
+  endpoint_public_access       = var.endpoint_public_access
+  endpoint_private_access      = var.endpoint_private_access
+  endpoint_public_access_cidrs = var.allowed_cidrs
 
-  cluster_enabled_log_types = [
-    "api",
-    "audit",
-    "authenticator",
-    "controllerManager",
-    "scheduler",
-  ]
+  enabled_log_types = var.enabled_log_types
 
-  enable_irsa = true
+  enable_irsa = var.enable_irsa
 
-  authentication_mode                      = "API_AND_CONFIG_MAP"
-  enable_cluster_creator_admin_permissions = false
+  authentication_mode                      = var.authentication_mode
+  enable_cluster_creator_admin_permissions = var.enable_cluster_creator_admin_permissions
 
   access_entries = merge(
     {
-      operator = {
+      (var.operator_access_entry_key) = {
         principal_arn = var.operator_principal_arn
         policy_associations = {
-          admin = {
-            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          (var.operator_policy_association_key) = {
+            policy_arn = replace(var.operator_cluster_access_policy_arn_template, var.partition_placeholder, data.aws_partition.current.partition)
             access_scope = {
-              type = "cluster"
+              type = var.operator_access_scope_type
             }
           }
         }
       }
     },
     var.jenkins_role_arn == "" ? {} : {
-      jenkins = {
+      (var.jenkins_access_entry_key) = {
         principal_arn = var.jenkins_role_arn
         policy_associations = {
-          edit = {
-            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+          (var.jenkins_policy_association_key) = {
+            policy_arn = replace(var.jenkins_cluster_access_policy_arn_template, var.partition_placeholder, data.aws_partition.current.partition)
             access_scope = {
-              type       = "namespace"
-              namespaces = ["weather-staging", "weather-prod"]
+              type       = var.jenkins_access_scope_type
+              namespaces = var.jenkins_access_namespaces
             }
           }
         }
@@ -57,25 +51,24 @@ module "eks" {
     var.access_entries,
   )
 
-  cluster_addons = var.cluster_addons
-
-  eks_managed_node_group_defaults = var.eks_managed_node_group_defaults
+  addons = var.cluster_addons
 
   eks_managed_node_groups = {
     for k, v in var.eks_managed_node_groups : k => merge(
+      var.eks_managed_node_group_defaults,
       v,
       {
-        name = coalesce(v.name, "${var.cluster_name}-${k}")
+        name = coalesce(v.name, "${var.cluster_name}${var.node_group_name_separator}${k}")
         tags = merge(var.tags, v.tags, {
-          "k8s.io/cluster-autoscaler/enabled"             = "true"
-          "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
+          (var.cluster_autoscaler_enabled_tag_key)                            = var.cluster_autoscaler_enabled_tag_value
+          "${var.cluster_autoscaler_owned_tag_key_prefix}${var.cluster_name}" = var.cluster_autoscaler_owned_tag_value
         })
       }
     )
   }
 
   node_security_group_tags = merge(var.tags, {
-    "karpenter.sh/discovery" = var.cluster_name
+    (var.karpenter_discovery_tag_key) = var.cluster_name
   })
 
   tags = var.tags
@@ -83,32 +76,28 @@ module "eks" {
 
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.24"
+  version = "~> 21.20"
 
   cluster_name = module.eks.cluster_name
 
-  enable_v1_permissions = true
+  create_pod_identity_association = var.karpenter_create_pod_identity_association
+  create_instance_profile         = var.karpenter_create_instance_profile
 
-  enable_irsa             = true
-  irsa_oidc_provider_arn  = module.eks.oidc_provider_arn
-  create_instance_profile = true
+  iam_role_name              = "${var.cluster_name}${var.karpenter_iam_role_name_suffix}"
+  iam_role_use_name_prefix   = var.karpenter_iam_role_use_name_prefix
+  iam_policy_name            = "${var.cluster_name}${var.karpenter_iam_role_name_suffix}"
+  iam_policy_use_name_prefix = var.karpenter_iam_policy_use_name_prefix
 
-  iam_role_name              = "${var.cluster_name}-karpenter-controller"
-  iam_role_use_name_prefix   = false
-  iam_policy_name            = "${var.cluster_name}-karpenter-controller"
-  iam_policy_use_name_prefix = false
-
-  node_iam_role_name              = "${var.cluster_name}-karpenter-node"
-  node_iam_role_use_name_prefix   = false
-  create_pod_identity_association = false
+  node_iam_role_name            = "${var.cluster_name}${var.karpenter_node_iam_role_name_suffix}"
+  node_iam_role_use_name_prefix = var.karpenter_node_iam_role_use_name_prefix
 
   node_iam_role_additional_policies = {
-    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    for k, v in var.karpenter_node_additional_policies : k => replace(v, var.partition_placeholder, data.aws_partition.current.partition)
   }
 
-  queue_name = "${var.cluster_name}-karpenter"
+  queue_name = "${var.cluster_name}${var.karpenter_queue_name_suffix}"
 
   tags = merge(var.tags, {
-    "karpenter.sh/discovery" = var.cluster_name
+    (var.karpenter_discovery_tag_key) = var.cluster_name
   })
 }
