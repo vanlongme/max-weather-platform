@@ -141,3 +141,11 @@ module "metrics_server" {
 
   depends_on = [module.eks_nodegroup]
 }
+
+module "namespaces" {
+  source = "../../modules/namespaces"
+
+  cluster_name = var.cluster_name
+
+  depends_on = [module.eks_nodegroup]
+}
