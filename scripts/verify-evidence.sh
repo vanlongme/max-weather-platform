@@ -34,8 +34,8 @@ check "k8s/base/kustomization.yaml"
 check "k8s/overlays/staging/kustomization.yaml"
 
 # D4 Jenkins
-check "Jenkinsfile"
-check "ci/README.md"
+check "app/Jenkinsfile"
+check "app/README.md"
 
 # D5 API Gateway
 check "docs/api-gateway-runbook.md"

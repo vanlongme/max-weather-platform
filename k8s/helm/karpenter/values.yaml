@@ -6,9 +6,7 @@
 ##   ${KARPENTER_QUEUE_NAME}      - terraform output: karpenter_queue_name
 ##
 ## Authentication: EKS Pod Identity (associated by the karpenter sub-module v21+).
-## No serviceAccount annotation is required; the IRSA `eks.amazonaws.com/role-arn`
-## annotation is incompatible with Pod Identity and was removed during the
-## terraform-aws-modules/eks v20->v21 upgrade.
+## No serviceAccount annotation is required.
 
 replicas: 2
 

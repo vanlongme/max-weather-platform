@@ -44,12 +44,15 @@ Some files contain `${VAR}` placeholders substituted by the install script using
 | `VPC_ID` | `module.networking.vpc_id` |
 | `CLUSTER_ENDPOINT` | `module.eks.cluster_endpoint` |
 | `LOG_GROUP_NAME` | `module.cloudwatch.eks_application_log_group` |
-| `CLUSTER_AUTOSCALER_ROLE_ARN` | `module.iam.cluster_autoscaler_role_arn` |
-| `FLUENT_BIT_ROLE_ARN` | `module.iam.fluent_bit_role_arn` |
-| `AWS_LB_CONTROLLER_ROLE_ARN` | `module.iam.aws_lb_controller_role_arn` |
-| `EXTERNAL_SECRETS_ROLE_ARN` | `module.iam.external_secrets_role_arn` |
 | `KARPENTER_QUEUE_NAME` | `module.eks.karpenter_queue_name` |
 | `KARPENTER_NODE_IAM_ROLE_NAME` | `module.eks.karpenter_node_iam_role_name` |
+
+> Workload IAM is bound via **EKS Pod Identity** (`aws_eks_pod_identity_association`
+> in `infra/modules/eks`), not IRSA — so no `*_ROLE_ARN` placeholders appear in
+> `values.yaml` and ServiceAccounts carry no `eks.amazonaws.com/role-arn`
+> annotation. The five built-in associations (jenkins, cluster-autoscaler,
+> fluent-bit, aws-load-balancer-controller, external-secrets) are listed in
+> `infra/modules/iam/locals.tf`.
 
 ## Customization
 

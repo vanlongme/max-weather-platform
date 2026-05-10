@@ -50,13 +50,8 @@ export CLUSTER_NAME AWS_REGION
 export VPC_ID="$(tf_out vpc_id)"
 export CLUSTER_ENDPOINT="$(tf_out cluster_endpoint)"
 export LOG_GROUP_NAME="$(tf_out eks_application_log_group)"
-export CLUSTER_AUTOSCALER_ROLE_ARN="$(tf_out cluster_autoscaler_role_arn)"
-export FLUENT_BIT_ROLE_ARN="$(tf_out fluent_bit_role_arn)"
-export AWS_LB_CONTROLLER_ROLE_ARN="$(tf_out aws_lb_controller_role_arn)"
-export EXTERNAL_SECRETS_ROLE_ARN="$(tf_out external_secrets_role_arn)"
 export KARPENTER_QUEUE_NAME="$(tf_out karpenter_queue_name)"
 export KARPENTER_NODE_IAM_ROLE_NAME="$(tf_out karpenter_node_iam_role_name)"
-export JENKINS_IRSA_ROLE_ARN="$(tf_out jenkins_role_arn)"
 
 # Ensure kubeconfig points at the cluster.
 log "Updating kubeconfig for ${CLUSTER_NAME} in ${AWS_REGION}"
