@@ -13,9 +13,8 @@ variable "repositories" {
     tag_prefix_list            = optional(list(string), ["staging-", "prod-"])
   }))
   default = {
-    api               = {}
-    lambda-authorizer = {}
-    base-nodejs       = {}
+    api         = {}
+    base-nodejs = {}
   }
 }
 
