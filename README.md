@@ -1,17 +1,302 @@
-# Max Weather Platform
+# Max Weather — 101 Digital DevOps Assessment
 
-DevOps Technical Assessment — 101 Digital PTE. LTD.
+## TL;DR
 
-## Table of Contents
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Infrastructure](#infrastructure)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [API Authorization](#api-authorization)
-- [Evidence](#evidence)
-- [Portability](#portability)
-- [Tear-Down](#tear-down)
-- [Decisions](#decisions)
+Max Weather is a containerized weather API on AWS EKS, fronted by API Gateway with a
+Lambda authorizer that validates Cognito JWTs. The full stack is provisioned via
+Terraform (multi-environment, remote state), deployed by a Jenkins declarative
+pipeline (build, test, push to ECR, kubectl apply), and observable via CloudWatch
+Container Insights with HPA-based autoscaling. A k6 load test demonstrates HPA
+scaling end-to-end, and a single `make teardown` returns the AWS account to zero.
 
-<!-- Full content authored in T28 -->
+## Architecture
+
+![Architecture Diagram](docs/architecture.png)
+
+Source: [`docs/architecture.drawio`](docs/architecture.drawio)
+
+The data plane:
+
+1. Client obtains an OAuth2 access token from Cognito (client_credentials flow with `weather-api/read` scope).
+2. Client calls `GET /weather` on the API Gateway HTTP API endpoint with `Authorization: Bearer <token>`.
+3. API Gateway invokes the Lambda authorizer, which validates the JWT signature against Cognito JWKS and checks the scope.
+4. On allow, API Gateway forwards the request via VPC Link to an internal Network Load Balancer.
+5. The NLB targets the `ingress-nginx` Service inside EKS, which routes by Host/path to the `weather-api` Service.
+6. `weather-api` pods (Node.js) call Open-Meteo and return JSON. Logs ship to CloudWatch via Fluent Bit; metrics flow to Container Insights, driving the HPA.
+
+## Deliverables
+
+| ID | Deliverable | Location |
+|----|-------------|----------|
+| D1 | Architecture diagram | `docs/architecture.drawio`, `docs/architecture.png` |
+| D2 | Terraform IaC (multi-env, remote state) | `infra/bootstrap/`, `infra/envs/{staging,prod}/`, `infra/modules/` |
+| D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, helm modules in `infra/modules/` |
+| D4 | Jenkins CI/CD pipeline | `Jenkinsfile`, `ci/README.md` |
+| D5 | API Gateway + Cognito + Lambda authorizer | `infra/modules/{cognito,api-gateway,lambda-authorizer}/`, `lambda-authorizer/`, `docs/api-gateway-runbook.md` |
+| D6 | Postman collection + load test | `docs/postman/`, `tests/load/weather-load.js` |
+
+## Prerequisites
+
+- AWS account with admin rights and a CLI profile (default region `us-east-1`)
+- AWS CLI v2, Terraform 1.6+, kubectl 1.29+, Helm 3.13+, Docker (with buildx)
+- Node.js 20+ (for the application and Lambda authorizer)
+- `newman` (for Postman runs): `npm i -g newman newman-reporter-htmlextra`
+- `k6` (for load tests): `brew install k6` or [k6 installation docs](https://k6.io/docs/getting-started/installation/)
+- `cloud-nuke` (for orphan cleanup, optional): download `cloud-nuke_linux_amd64` from [Gruntwork releases](https://github.com/gruntwork-io/cloud-nuke/releases)
+
+## Quick Start
+
+End-to-end deployment from a clean AWS account:
+
+```bash
+# 1. Initialize remote state backend (S3 + DynamoDB)
+make bootstrap
+
+# 2. Provision all infrastructure (VPC, EKS, ECR, Cognito, Lambda, API GW)
+make init
+make plan
+make apply        # ~20 minutes
+
+# 3. Configure kubectl
+aws eks update-kubeconfig --name max-weather --region us-east-1
+
+# 4. Build and push the application image
+make app-build-push
+
+# 5. Package and deploy the Lambda authorizer
+make authorizer-deploy
+
+# 6. Deploy Kubernetes workloads
+make deploy-staging
+
+# 7. Smoke-test through API Gateway
+make postman
+
+# 8. Run load test and capture HPA evidence
+make load-test
+
+# 9. Collect all evidence into docs/evidence/
+make evidence
+make verify-evidence
+```
+
+## Repository Layout
+
+```
+.
+├── Jenkinsfile                  # CI/CD pipeline (declarative)
+├── Makefile                     # Operator entrypoints
+├── README.md                    # You are here
+├── app/                         # Weather API (Node.js)
+├── lambda-authorizer/           # Cognito JWT validator (Node.js)
+├── infra/
+│   ├── bootstrap/               # Remote state backend (S3 + DynamoDB)
+│   ├── envs/
+│   │   ├── staging/             # Staging environment composition
+│   │   └── prod/                # Production environment composition
+│   └── modules/                 # Reusable Terraform modules
+│       ├── networking/          # VPC, subnets, NAT, route tables
+│       ├── eks-cluster/         # EKS control plane + IRSA
+│       ├── eks-nodegroup/       # Managed node groups
+│       ├── ecr/                 # Container registries
+│       ├── cognito/             # User Pool, App Client, Resource Server
+│       ├── iam/                 # Service-account IAM roles (IRSA)
+│       ├── secrets/             # Secrets Manager + External Secrets
+│       ├── jenkins/             # CI host (EC2 + Docker)
+│       ├── cloudwatch/          # Log groups
+│       ├── nginx-ingress/       # Helm release
+│       ├── aws-lb-controller/   # Helm release
+│       ├── cluster-autoscaler/  # Helm release
+│       ├── fluent-bit/          # Helm release
+│       ├── external-secrets/    # Helm release
+│       ├── metrics-server/      # Helm release
+│       └── namespaces/          # weather-staging, weather-prod, system
+├── k8s/
+│   ├── base/                    # Kustomize base (Deployment, Service, HPA, NetworkPolicy, ResourceQuota)
+│   └── overlays/
+│       ├── staging/             # min replicas 2, lower limits
+│       └── prod/                # min replicas 3, higher limits
+├── ci/                          # Jenkins README
+├── docs/
+│   ├── architecture.drawio      # Source diagram
+│   ├── architecture.png         # Rendered diagram
+│   ├── api-gateway-runbook.md   # Manual API Gateway / VPC Link / Authorizer wiring
+│   ├── postman/                 # Postman collection + env template
+│   └── evidence/                # Captured evidence (terraform, k8s, k6, CloudWatch, teardown)
+├── tests/
+│   └── load/weather-load.js     # k6 load test
+└── scripts/                     # Operational scripts
+    ├── get-token.sh
+    ├── run-postman.sh
+    ├── run-loadtest.sh
+    ├── force-scale-demo.sh
+    ├── collect-evidence.sh
+    ├── verify-evidence.sh
+    ├── sanitize-outputs.sh
+    ├── teardown.sh
+    └── cloud-nuke-wrapper.sh
+```
+
+## Configuration
+
+Per-environment Terraform variables live in `infra/envs/{staging,prod}/terraform.tfvars`.
+Key variables:
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `region` | AWS region | `us-east-1` |
+| `project` | Tag prefix and resource name component | `max-weather` |
+| `environment` | Env name (used in tags and DNS) | `staging` |
+| `vpc_cidr` | VPC IPv4 CIDR | `10.20.0.0/16` |
+| `azs` | Availability zones | `["us-east-1a","us-east-1b"]` |
+| `eks_version` | Kubernetes minor | `1.29` |
+| `node_instance_types` | Worker EC2 instance types | `["t3.medium"]` |
+| `node_desired_capacity` | Initial worker count | `2` |
+| `node_min_size` / `node_max_size` | Autoscaling bounds | `2` / `5` |
+| `cognito_domain_prefix` | Cognito hosted UI subdomain | `max-weather-staging` |
+| `tags` | Common tags applied to all resources | `{ Project = "max-weather", Env = "staging" }` |
+
+All resources are tagged with `Project=max-weather` so cost and cleanup queries
+can scope to this assessment.
+
+## Cost Estimate
+
+Steady-state monthly cost (us-east-1, on-demand pricing) for the staging stack:
+
+| Service | Monthly USD |
+|---------|-------------|
+| EKS control plane | 73 |
+| 2 x t3.medium worker nodes | 60 |
+| NAT Gateway (1) + traffic | 35 |
+| NLB (created by ingress-nginx Service) | 18 |
+| ECR storage (~5 GB) | 1 |
+| CloudWatch Logs (5 log groups, ~5 GB ingest) | 8 |
+| Container Insights metrics | 5 |
+| Lambda authorizer (free tier) | 0 |
+| API Gateway HTTP API (low volume) | 1 |
+| Cognito (under MAU limit) | 0 |
+| Secrets Manager (5 secrets) | 2 |
+| Jenkins t3.small EC2 | 12 |
+| **Total** | **~215** |
+
+For a 2-day demo (`apply` -> evaluate -> `teardown`), prorated cost is ~$15.
+Run `make teardown` immediately after evaluation to avoid drift.
+
+## Authentication
+
+The API uses Cognito **client_credentials** flow (machine-to-machine), not user login.
+
+```bash
+TOKEN=$(scripts/get-token.sh)
+curl -H "Authorization: Bearer $TOKEN" \
+  "$(cd infra/envs/staging && terraform output -raw api_gateway_invoke_url)/weather?latitude=10.78&longitude=106.70"
+```
+
+The Lambda authorizer (`lambda-authorizer/src/index.js`):
+
+1. Extracts `Bearer <jwt>` from the `Authorization` header.
+2. Fetches Cognito JWKS (cached in memory across invocations).
+3. Verifies signature, expiry, audience (client_id), and `scope` includes `weather-api/read`.
+4. Returns `{ isAuthorized: true|false }`.
+
+JWT validation is offline (no network calls per invoke), so cold-start tail latency
+stays under 1s and warm latency is < 10ms.
+
+## Observability
+
+CloudWatch log groups (one per workload, 7-day retention by default):
+
+| Group | Source |
+|-------|--------|
+| `/aws/eks/max-weather/cluster` | EKS control plane (api, audit, authenticator) |
+| `/aws/eks/max-weather/application` | Pod stdout/stderr via Fluent Bit DaemonSet |
+| `/aws/lambda/max-weather-authorizer` | Lambda authorizer invocation logs |
+| `/aws/apigateway/max-weather-api` | API Gateway access logs |
+| `/aws/eks/max-weather/host` | Node-level systemd / kubelet via Fluent Bit |
+
+Container Insights provides per-pod CPU/memory/network metrics under the
+`ContainerInsights` namespace, dimensioned by `ClusterName` and `Namespace`.
+
+Live troubleshooting:
+
+```bash
+kubectl get hpa -n weather-staging -w
+kubectl top pods -n weather-staging
+kubectl logs -n weather-staging -l app=weather-api --tail=100 -f
+aws logs tail /aws/eks/max-weather/application --follow --region us-east-1
+```
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| `terraform apply` fails on EKS with "cluster does not exist" | aws-auth ConfigMap not yet propagated | Wait 60s, re-run `terraform apply` |
+| `kubectl` returns "Unauthorized" | kubeconfig points at the wrong context | Re-run `aws eks update-kubeconfig --name max-weather --region us-east-1` |
+| Pods stuck in `ImagePullBackOff` | ECR image not pushed, or node IAM lacks `ecr:GetAuthorizationToken` | Run `make app-build-push`; verify the node group IAM role attaches `AmazonEC2ContainerRegistryReadOnly` |
+| API Gateway returns 401 | JWT expired (1h TTL) or scope missing | Re-run `scripts/get-token.sh`; check the App Client has `weather-api/read` scope |
+| API Gateway returns 502 | VPC Link target group unhealthy | Verify NLB targets are healthy: `aws elbv2 describe-target-health --target-group-arn <arn>` |
+| HPA not scaling under load | Open-Meteo upstream is caching, so pod CPU stays low | Run `bash scripts/force-scale-demo.sh` to demonstrate scaling wiring |
+| `terraform destroy` hangs on subnet deletion | Orphaned ENI from NLB or Lambda | Wait 5 minutes for ENI cleanup, then re-run; or use `make cloud-nuke-dry` to identify |
+| Newman exits non-zero with "ECONNREFUSED" | `invoke_url` not yet propagated, or wrong stage | Confirm the API Gateway stage is deployed: `aws apigatewayv2 get-stages --api-id <id>` |
+
+## Teardown
+
+Single command, ordered to avoid leaving orphans:
+
+```bash
+make teardown
+```
+
+This runs `scripts/teardown.sh` which:
+
+1. Confirms intent (operator must type `destroy max-weather`).
+2. `kubectl delete -k k8s/overlays/{staging,prod}` to remove ingress (triggers NLB cleanup).
+3. Sleeps 60s for AWS Load Balancer Controller to delete target groups.
+4. `helm uninstall` for ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server.
+5. `kubectl delete ns` for application and system namespaces.
+6. Prompts for manual API Gateway deletion (it was created out-of-band per `docs/api-gateway-runbook.md`).
+7. `terraform destroy -auto-approve` in `infra/envs/staging`.
+8. Optional: cloud-nuke dry-run to surface any orphaned resources.
+9. Prints elapsed time and savings.
+
+For state-backend cleanup (rare):
+
+```bash
+cd infra/bootstrap && terraform destroy -auto-approve
+```
+
+To verify zero remaining resources tagged with `Project=max-weather`:
+
+```bash
+aws resourcegroupstaggingapi get-resources \
+  --tag-filters Key=Project,Values=max-weather \
+  --region us-east-1 \
+  --query 'ResourceTagMappingList[].ResourceARN' --output text
+```
+
+## Security Notes
+
+- **No secrets in Git.** All secrets (Cognito client_secret, third-party API keys) live in AWS Secrets Manager and are mounted into pods via External Secrets Operator. The Postman environment template ships with empty secret fields.
+- **IRSA everywhere.** Workload pods (Cluster Autoscaler, AWS LB Controller, Fluent Bit, External Secrets, weather-api) use IAM Roles for Service Accounts — no node-level IAM credentials shared across pods.
+- **Least-privilege IAM.** Each module owns its own IAM role with policies scoped to the resources it manages.
+- **Network isolation.** Worker nodes live in private subnets only. Egress goes through the NAT Gateway. Public ingress is API Gateway -> VPC Link -> internal NLB; the NLB has no public DNS.
+- **NetworkPolicies.** `weather-api` pods accept ingress only from `ingress-nginx` and egress only to DNS, Cognito JWKS, and Open-Meteo.
+- **JWT verified offline.** The Lambda authorizer caches Cognito JWKS in memory; signature verification is local.
+- **Image scanning.** ECR repositories have scan-on-push enabled. The Jenkins pipeline fails on `HIGH`/`CRITICAL` findings.
+- **Sanitized outputs.** `scripts/sanitize-outputs.sh` strips `sensitive=true` Terraform outputs and redacts AWS account IDs / JWT-like strings before any `terraform output` artifact is committed to evidence.
+
+## Out of Scope
+
+- Multi-region deployment (single `us-east-1`)
+- Production-grade WAF and DDoS protection (Shield Advanced)
+- Custom DNS / TLS via Route53 + ACM (the API uses the default `*.execute-api` domain)
+- ArgoCD / GitOps continuous deployment (Jenkins push-style is used)
+- Cost anomaly detection / budgets (operator runs `make teardown` instead)
+- Service mesh (Istio/Linkerd) — not needed at one-service scale
+
+## License
+
+This repository is submitted as an assessment artifact. All third-party libraries
+retain their original licenses (MIT for Node.js dependencies, Apache 2.0 for the
+AWS Load Balancer Controller, etc.). The Open-Meteo API is consumed under their
+free-tier terms.
