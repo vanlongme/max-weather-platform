@@ -1,0 +1,28 @@
+# infra/modules/lambda — terraform.tfvars.example
+# This module is called from envs/poc/main.tf, not invoked standalone.
+# Copy this file to terraform.tfvars and fill in real values if testing the module in isolation.
+#
+# IMPORTANT: Run `make lambda-deps` (or `cd lambda-authorizer && npm ci --omit=dev`) BEFORE
+# running `terraform plan` — archive_file reads node_modules at plan time.
+
+# name = "poc-max-weather"
+
+# functions = {
+#   authorizer = {
+#     source_dir      = "/absolute/path/to/lambda-authorizer"
+#     handler         = "src/index.handler"
+#     runtime         = "nodejs22.x"
+#     memory_size     = 128
+#     timeout         = 5
+#     role_arn        = "arn:aws:iam::123456789012:role/poc-max-weather-lambda-authorizer-role"
+#     npm_install_dir = "/absolute/path/to/lambda-authorizer"
+#     environment = {
+#       AUTHORIZER_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-authorizer-jwt-secret-AbCdEf"
+#       REQUIRED_SCOPE        = "weather-api/read"
+#       JWT_ISSUER            = "max-weather-authorizer"
+#     }
+#     invoke_principals = {
+#       api-gateway = "arn:aws:execute-api:us-east-1:123456789012:*"
+#     }
+#   }
+# }

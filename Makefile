@@ -10,7 +10,7 @@ ECR_HOST   := $(shell echo $(APP_REPO) | cut -d/ -f1)
 .PHONY: help init plan apply destroy \
         ecr-login app-build app-build-push app-run-local app-shell \
         base-image-build base-image-push \
-        authorizer-package authorizer-deploy \
+        lambda-deps issue-token \
         install-addons deploy-staging deploy-prod \
         test lint \
         evidence nuke \
@@ -55,20 +55,11 @@ app-run-local: ## Run weather-api locally
 app-shell: ## Shell into weather-api container
 	docker run --rm -it --entrypoint sh weather-api:$(GIT_SHA)
 
-authorizer-package: ## Package Lambda authorizer ZIP
-	cd lambda-authorizer && rm -rf node_modules
+lambda-deps: ## Install Lambda authorizer production deps (required before terraform plan/apply)
 	cd lambda-authorizer && npm ci --omit=dev
-	mkdir -p dist
-	cd lambda-authorizer && zip -qr ../dist/lambda-authorizer.zip src/ node_modules/ package.json
 
-authorizer-deploy: authorizer-package ## Deploy Lambda authorizer ZIP to AWS
-	aws lambda update-function-code \
-		--function-name max-weather-authorizer \
-		--zip-file fileb://dist/lambda-authorizer.zip \
-		--region $(REGION)
-	aws lambda wait function-updated \
-		--function-name max-weather-authorizer \
-		--region $(REGION)
+issue-token: ## Issue a short-lived HS256 JWT for API testing (reads secret from Secrets Manager)
+	@bash scripts/issue-token.sh
 
 install-addons: ## Install/upgrade all cluster Helm add-ons (idempotent)
 	CLUSTER_NAME=$(CLUSTER) AWS_REGION=$(REGION) bash scripts/install-helm-addons.sh
@@ -85,9 +76,8 @@ deploy-prod: ## Deploy to prod via kubectl kustomize
 	kubectl apply -k k8s/overlays/prod
 	kubectl rollout status deployment/weather-api -n weather-prod --timeout=180s
 
-test: ## Run all tests (app + authorizer)
+test: ## Run app tests (lambda-authorizer tests removed — agent-executed QA only)
 	cd app && npm ci && npm test
-	cd lambda-authorizer && npm ci && npm test
 
 lint: ## Lint application code
 	cd app && npm run lint
