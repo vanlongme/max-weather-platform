@@ -1,15 +1,3 @@
-locals {
-  repositories_resolved = {
-    for name, cfg in var.repositories : name => {
-      image_tag_mutability       = coalesce(cfg.image_tag_mutability, var.image_tag_mutability)
-      scan_on_push               = cfg.scan_on_push == null ? var.scan_on_push : cfg.scan_on_push
-      keep_tagged_image_count    = coalesce(cfg.keep_tagged_image_count, var.keep_tagged_image_count)
-      untagged_image_expiry_days = coalesce(cfg.untagged_image_expiry_days, var.untagged_image_expiry_days)
-      tag_prefix_list            = cfg.tag_prefix_list
-    }
-  }
-}
-
 resource "aws_ecr_repository" "repos" {
   for_each = local.repositories_resolved
 
@@ -31,29 +19,37 @@ resource "aws_ecr_lifecycle_policy" "repos" {
   policy = jsonencode({
     rules = [
       {
-        rulePriority = 1
-        description  = "Keep last ${local.repositories_resolved[each.key].keep_tagged_image_count} tagged images"
+        rulePriority = var.lifecycle_keep_tagged_priority
+        description = replace(
+          var.lifecycle_keep_tagged_description_template,
+          var.lifecycle_count_placeholder,
+          tostring(local.repositories_resolved[each.key].keep_tagged_image_count),
+        )
         selection = {
-          tagStatus     = "tagged"
+          tagStatus     = var.lifecycle_tag_status_tagged
           tagPrefixList = local.repositories_resolved[each.key].tag_prefix_list
-          countType     = "imageCountMoreThan"
+          countType     = var.lifecycle_count_type_more_than
           countNumber   = local.repositories_resolved[each.key].keep_tagged_image_count
         }
         action = {
-          type = "expire"
+          type = var.lifecycle_action_type
         }
       },
       {
-        rulePriority = 2
-        description  = "Expire untagged images after ${local.repositories_resolved[each.key].untagged_image_expiry_days} days"
+        rulePriority = var.lifecycle_expire_untagged_priority
+        description = replace(
+          var.lifecycle_expire_untagged_description_template,
+          var.lifecycle_count_placeholder,
+          tostring(local.repositories_resolved[each.key].untagged_image_expiry_days),
+        )
         selection = {
-          tagStatus   = "untagged"
-          countType   = "sinceImagePushed"
-          countUnit   = "days"
+          tagStatus   = var.lifecycle_tag_status_untagged
+          countType   = var.lifecycle_count_type_since_pushed
+          countUnit   = var.lifecycle_count_unit
           countNumber = local.repositories_resolved[each.key].untagged_image_expiry_days
         }
         action = {
-          type = "expire"
+          type = var.lifecycle_action_type
         }
       },
     ]

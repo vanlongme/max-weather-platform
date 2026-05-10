@@ -83,11 +83,6 @@ output "karpenter_queue_name" {
   value       = module.eks.karpenter_queue_name
 }
 
-output "karpenter_iam_role_arn" {
-  description = "IAM role ARN for the Karpenter controller (IRSA, consumed by Karpenter Helm values)."
-  value       = module.eks.karpenter_iam_role_arn
-}
-
 output "karpenter_node_iam_role_name" {
   description = "IAM role name attached to nodes Karpenter provisions (referenced from EC2NodeClass)."
   value       = module.eks.karpenter_node_iam_role_name

@@ -86,6 +86,7 @@ the merge.
 | `log_retention_days` | Default log retention in days, applied when an entry's `retention_days` is null. | `number` | `30` |
 | `tags` | Common tags. | `map(string)` | `{}` |
 | `log_groups` | Map of CloudWatch log groups to create, keyed by short name. Each entry has `name` (may contain `__CLUSTER_NAME__`) and optional `retention_days`. **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = string, retention_days = optional(number) }))</code> | The 5 entries listed above. |
+| `cluster_name_placeholder` | Literal placeholder token in `log_groups[*].name` substituted with `var.cluster_name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
 
 ## Outputs
 

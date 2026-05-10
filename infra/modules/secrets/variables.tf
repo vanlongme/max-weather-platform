@@ -3,6 +3,12 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "cluster_name_placeholder" {
+  description = "Literal placeholder token in secret names that is substituted with var.cluster_name at apply time."
+  type        = string
+  default     = "__CLUSTER_NAME__"
+}
+
 variable "tags" {
   description = "Common tags."
   type        = map(string)

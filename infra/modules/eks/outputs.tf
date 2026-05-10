@@ -48,11 +48,6 @@ output "karpenter_queue_name" {
   value       = module.karpenter.queue_name
 }
 
-output "karpenter_iam_role_arn" {
-  description = "IAM role ARN for the Karpenter controller (IRSA)."
-  value       = module.karpenter.iam_role_arn
-}
-
 output "karpenter_node_iam_role_arn" {
   description = "IAM role ARN attached to nodes Karpenter provisions."
   value       = module.karpenter.node_iam_role_arn

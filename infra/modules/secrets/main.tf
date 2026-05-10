@@ -1,12 +1,12 @@
 resource "aws_secretsmanager_secret" "secrets" {
   for_each = var.secrets
 
-  name                    = replace(each.value.name, "__CLUSTER_NAME__", var.cluster_name)
+  name                    = replace(each.value.name, var.cluster_name_placeholder, var.cluster_name)
   description             = each.value.description
   recovery_window_in_days = each.value.recovery_window_in_days
 
   tags = merge(var.tags, {
-    Name = replace(each.value.name, "__CLUSTER_NAME__", var.cluster_name)
+    Name = replace(each.value.name, var.cluster_name_placeholder, var.cluster_name)
   })
 }
 

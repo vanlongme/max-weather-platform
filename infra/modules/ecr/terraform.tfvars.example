@@ -1,6 +1,8 @@
+cluster_name = "max-weather"
+
 repositories = {
-  "max-weather-api" = {}
-  "max-weather-lambda-authorizer" = {
+  "__CLUSTER_NAME__-api" = {}
+  "__CLUSTER_NAME__-lambda-authorizer" = {
     keep_tagged_image_count    = 5
     untagged_image_expiry_days = 14
   }

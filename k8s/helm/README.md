@@ -48,7 +48,6 @@ Some files contain `${VAR}` placeholders substituted by the install script using
 | `FLUENT_BIT_ROLE_ARN` | `module.iam.fluent_bit_role_arn` |
 | `AWS_LB_CONTROLLER_ROLE_ARN` | `module.iam.aws_lb_controller_role_arn` |
 | `EXTERNAL_SECRETS_ROLE_ARN` | `module.iam.external_secrets_role_arn` |
-| `KARPENTER_IAM_ROLE_ARN` | `module.eks.karpenter_iam_role_arn` |
 | `KARPENTER_QUEUE_NAME` | `module.eks.karpenter_queue_name` |
 | `KARPENTER_NODE_IAM_ROLE_NAME` | `module.eks.karpenter_node_iam_role_name` |
 
@@ -62,10 +61,12 @@ diff (Helm computes the patch).
 
 Karpenter installs from the `oci://public.ecr.aws/karpenter/karpenter` chart and
 ships a controller plus the `EC2NodeClass` and `NodePool` v1 CRDs. The AWS-side
-scaffolding (controller IAM role via IRSA, node IAM role + instance profile, SQS
-interruption queue) is created by the EKS module wrapper
+scaffolding (controller IAM role via EKS Pod Identity, node IAM role + instance
+profile, SQS interruption queue) is created by the EKS module wrapper
 (`infra/modules/eks/main.tf`) using the upstream `terraform-aws-modules/eks`
-karpenter sub-module.
+karpenter sub-module. As of upstream v21, the controller uses EKS Pod Identity
+(no ServiceAccount IRSA annotation needed) — the `EKSPodIdentityAssociation` is
+created by the karpenter sub-module via `create_pod_identity_association = true`.
 
 Coexistence with cluster-autoscaler:
 - The EKS-managed `general` node group (label `role=general`) is owned by

@@ -68,6 +68,7 @@ When `initial_value` is null, no `aws_secretsmanager_secret_version` is created
 | `cluster_name` | EKS cluster name prefix. | `string` | n/a |
 | `tags` | Common tags. | `map(string)` | `{}` |
 | `secrets` | Map of Secrets Manager secrets, keyed by short name. Each value has `name` (may contain `__CLUSTER_NAME__`), optional `description`, optional `initial_value`, and optional `recovery_window_in_days` (default 7). **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = string, description = optional(string), initial_value = optional(string), recovery_window_in_days = optional(number, 7) }))</code> | `cognito_client_secret` + `app_config` |
+| `cluster_name_placeholder` | Literal placeholder token in `secrets[*].name` substituted with `var.cluster_name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
 
 ## Outputs
 
