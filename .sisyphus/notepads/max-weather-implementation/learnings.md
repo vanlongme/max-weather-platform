@@ -29,3 +29,12 @@
 - `drawio` CLI is at `/usr/bin/drawio` and requires X server; use `xvfb-run -a drawio --no-sandbox -x -f png -e -b 10 -o <out.png> <in.drawio>` for headless export.
 - Native drawio file uses `<mxfile>` wrapper around `<diagram><mxGraphModel>...</mxGraphModel></diagram></mxfile>` — that wrapper is what makes it openable in app.diagrams.net.
 - Embedded XML (`-e`) keeps the PNG editable in draw.io.
+
+## T4 — Networking module (2026-05-10)
+- Module path: `infra/modules/networking/` (not `terraform/modules/...` — repo uses `infra/`)
+- Terraform v1.14.0 available locally; AWS provider 5.100.0 installed under `~> 5.60`
+- `terraform init -backend=false` + `terraform validate` + `terraform fmt -check` all exit 0
+- Subnets keyed by AZ index via `count`; route tables created per-AZ even with `single_nat_gateway = true` (one private RT per AZ all pointing to NAT[0])
+- VPC endpoints: 3 Interface (ecr.api / ecr.dkr / logs) + 1 Gateway (s3); SG allows 443 from VPC CIDR only
+- Subnet tagging: `kubernetes.io/role/elb` on public, `kubernetes.io/role/internal-elb` on private, plus `kubernetes.io/cluster/<name>=shared` on both for EKS LB controller auto-discovery
+- Used `aws_eip.domain = "vpc"` (not deprecated `vpc = true`)

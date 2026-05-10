@@ -10,7 +10,7 @@ ECR_HOST   := $(shell echo $(APP_REPO) | cut -d/ -f1)
 .PHONY: help init plan apply destroy \
         ecr-login app-build app-build-push app-run-local app-shell \
         authorizer-package authorizer-deploy \
-        deploy-staging deploy-prod \
+        install-addons deploy-staging deploy-prod \
         test lint \
         evidence nuke \
         bootstrap postman load-test verify-evidence \
@@ -64,7 +64,10 @@ authorizer-deploy: authorizer-package ## Deploy Lambda authorizer ZIP to AWS
 		--function-name max-weather-authorizer \
 		--region $(REGION)
 
-deploy-staging: ## Deploy to staging via kubectl kustomize
+install-addons: ## Install/upgrade all cluster Helm add-ons (idempotent)
+	CLUSTER_NAME=$(CLUSTER) AWS_REGION=$(REGION) bash scripts/install-helm-addons.sh
+
+deploy-staging: install-addons ## Install add-ons then deploy to staging via kubectl kustomize
 	aws eks update-kubeconfig --name $(CLUSTER) --region $(REGION)
 	kubectl apply -k k8s/overlays/staging
 	kubectl rollout status deployment/weather-api -n $(NAMESPACE) --timeout=180s

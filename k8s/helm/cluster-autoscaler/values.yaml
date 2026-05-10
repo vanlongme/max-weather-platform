@@ -1,0 +1,20 @@
+# cluster-autoscaler Helm values
+# Chart: https://kubernetes.github.io/autoscaler (cluster-autoscaler 9.37.0)
+# Namespace: kube-system
+# Templated values (must be substituted by install script):
+#   ${CLUSTER_NAME}             - EKS cluster name
+#   ${AWS_REGION}               - AWS region
+#   ${CLUSTER_AUTOSCALER_ROLE_ARN} - IRSA role ARN (terraform output: cluster_autoscaler_role_arn)
+autoDiscovery:
+  clusterName: ${CLUSTER_NAME}
+awsRegion: ${AWS_REGION}
+rbac:
+  serviceAccount:
+    name: cluster-autoscaler
+    annotations:
+      eks.amazonaws.com/role-arn: ${CLUSTER_AUTOSCALER_ROLE_ARN}
+extraArgs:
+  scale-down-delay-after-add: 5m
+  scale-down-unneeded-time: 5m
+  balance-similar-node-groups: "true"
+  skip-nodes-with-system-pods: "false"
