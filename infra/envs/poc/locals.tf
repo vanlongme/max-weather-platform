@@ -1,7 +1,7 @@
 locals {
   # Environment is derived from this composition's directory name.
   # e.g. infra/envs/poc -> "poc", infra/envs/staging -> "staging".
-  environment = basename(path.module)
+  environment = basename(path.cwd)
 
   # master_prefix is the canonical prefix applied to every resource name
   # produced by this composition. Format: "<environment>-<project>".
