@@ -1,5 +1,5 @@
 resource "aws_cognito_user_pool" "main" {
-  name = "${var.cluster_name}${var.user_pool_name_suffix}"
+  name = "${var.name}${var.user_pool_name_suffix}"
 
   password_policy {
     minimum_length    = var.password_policy.minimum_length
@@ -31,7 +31,7 @@ resource "aws_cognito_resource_server" "weather_api" {
 resource "aws_cognito_user_pool_client" "app_clients" {
   for_each = var.app_clients
 
-  name         = "${var.cluster_name}-${coalesce(each.value.name_suffix, each.key)}${var.client_name_suffix}"
+  name         = "${var.name}-${coalesce(each.value.name_suffix, each.key)}${var.client_name_suffix}"
   user_pool_id = aws_cognito_user_pool.main.id
 
   generate_secret                      = each.value.generate_secret

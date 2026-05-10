@@ -1,5 +1,5 @@
-variable "cluster_name" {
-  description = "Project prefix for resource naming."
+variable "name" {
+  description = "Name prefix applied to every resource (typically the master_prefix from the composition, e.g. 'poc-max-weather')."
   type        = string
 }
 
@@ -21,9 +21,9 @@ variable "tags" {
 }
 
 variable "user_pool_name_suffix" {
-  description = "Suffix appended to var.cluster_name to form the Cognito user pool name."
+  description = "Suffix appended to var.name to form the Cognito user pool name."
   type        = string
-  default     = "-user-pool"
+  default     = "-userpool"
 }
 
 variable "password_policy" {
@@ -117,7 +117,7 @@ variable "primary_client_key" {
 }
 
 variable "app_clients" {
-  description = "Map of Cognito user pool app clients to create, keyed by short name. Defaults provide the weather-api client (client_credentials M2M flow with read scope on the resource server). Final client name = \"$${cluster_name}-$${name_suffix}-client\" where name_suffix defaults to the map key."
+  description = "Map of Cognito user pool app clients to create, keyed by short name. Defaults provide the weather-api client (client_credentials M2M flow with read scope on the resource server). Final client name = \"$${name}-$${name_suffix}-client\" where name_suffix defaults to the map key."
   type = map(object({
     name_suffix                          = optional(string)
     generate_secret                      = optional(bool, true)
