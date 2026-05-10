@@ -1,6 +1,6 @@
 locals {
   repositories_resolved = {
-    for name, cfg in var.repositories : replace(name, var.cluster_name_placeholder, var.cluster_name) => {
+    for key, cfg in var.repositories : "${var.name}-${key}-repo" => {
       image_tag_mutability       = coalesce(cfg.image_tag_mutability, var.image_tag_mutability)
       scan_on_push               = cfg.scan_on_push == null ? var.scan_on_push : cfg.scan_on_push
       keep_tagged_image_count    = coalesce(cfg.keep_tagged_image_count, var.keep_tagged_image_count)

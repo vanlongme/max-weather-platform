@@ -1,16 +1,10 @@
-variable "cluster_name" {
-  description = "Cluster name prefix used to interpolate the literal placeholder __CLUSTER_NAME__ in repository keys (mirrors the pattern used by the cloudwatch and secrets modules)."
+variable "name" {
+  description = "Name prefix applied to every resource (typically the master_prefix from the composition, e.g. 'poc-max-weather'). Each repository's final name is <var.name>-<key>-repo."
   type        = string
-}
-
-variable "cluster_name_placeholder" {
-  description = "Literal placeholder token in repository keys that is substituted with var.cluster_name at apply time."
-  type        = string
-  default     = "__CLUSTER_NAME__"
 }
 
 variable "repositories" {
-  description = "Map of ECR repositories to create, keyed by repository name. Each value is an object with optional per-repo overrides; when an override is null the module-level default applies. Repository keys may include the literal placeholder __CLUSTER_NAME__ which the module substitutes with var.cluster_name at apply time. The default map creates __CLUSTER_NAME__-api and __CLUSTER_NAME__-lambda-authorizer with module-level defaults."
+  description = "Map of ECR repositories to create, keyed by short name. Each value is an object with optional per-repo overrides; when an override is null the module-level default applies. Final repository name is <var.name>-<key>-repo (e.g. key 'api' with var.name 'poc-max-weather' produces 'poc-max-weather-api-repo'). The default map creates 'api', 'lambda-authorizer', and 'base-nodejs' repositories."
   type = map(object({
     image_tag_mutability       = optional(string)
     scan_on_push               = optional(bool)
@@ -19,8 +13,9 @@ variable "repositories" {
     tag_prefix_list            = optional(list(string), ["staging-", "prod-"])
   }))
   default = {
-    "__CLUSTER_NAME__-api"               = {}
-    "__CLUSTER_NAME__-lambda-authorizer" = {}
+    api               = {}
+    lambda-authorizer = {}
+    base-nodejs       = {}
   }
 }
 

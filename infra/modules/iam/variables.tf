@@ -1,5 +1,5 @@
-variable "cluster_name" {
-  description = "EKS cluster name, used for role naming and policy ARN templating."
+variable "name" {
+  description = "Name prefix applied to every IAM role (typically the master_prefix from the composition, e.g. 'poc-max-weather'). Each role is named <name>-<per-entry role_name_suffix or map_key><module role_name_suffix>. Also substitutes the __CLUSTER_NAME__ placeholder in inline policy JSON."
   type        = string
 }
 
@@ -19,14 +19,11 @@ variable "tags" {
   default     = {}
 }
 
-###############################################################################
-# Role-type maps — pick whichever you need; unused types stay empty.
-#
-# Each role type owns its own assume-role policy shape. Inline policy JSON is
-# templated with __AWS_PARTITION__ / __AWS_REGION__ / __AWS_ACCOUNT_ID__ /
-# __CLUSTER_NAME__ placeholders. Defaults for pod_identity_roles live in
-# locals.tf (Terraform forbids jsonencode() in variable defaults).
-###############################################################################
+variable "role_name_suffix" {
+  description = "Suffix appended to every IAM role name after the per-entry portion. Default '-role' makes role names self-describing (e.g. 'poc-max-weather-jenkins-role')."
+  type        = string
+  default     = "-role"
+}
 
 variable "service_roles" {
   description = "Map of AWS service-principal IAM roles (EC2, Lambda, ECS task, etc.). Keyed by short name. service_principals lists the AWS service principals the role can be assumed by (e.g. [\"lambda.amazonaws.com\"]). policy_json is the inline policy; managed_policy_arns attaches AWS-managed policies. Empty by default."
@@ -61,10 +58,6 @@ variable "pod_identity_roles" {
   default = null
 }
 
-###############################################################################
-# IRSA-only inputs — required only when irsa_roles is non-empty.
-###############################################################################
-
 variable "oidc_provider_arn" {
   description = "ARN of the EKS OIDC provider for IRSA trust relationships. Required when irsa_roles is non-empty. Sourced from the eks module."
   type        = string
@@ -76,11 +69,6 @@ variable "oidc_provider_url" {
   type        = string
   default     = ""
 }
-
-###############################################################################
-# Templating + literal customization knobs (kept variable for the same reasons
-# the prior single-type module did: every literal is overridable).
-###############################################################################
 
 variable "inline_policy_name_suffix" {
   description = "Suffix appended to each role's map key to form the inline aws_iam_role_policy name."
@@ -107,12 +95,11 @@ variable "account_id_placeholder" {
 }
 
 variable "cluster_name_placeholder" {
-  description = "Literal placeholder token in policy JSON substituted with var.cluster_name at apply time."
+  description = "Literal placeholder token in policy JSON substituted with var.name at apply time. Named for backward compatibility — the substituted value is the resource name prefix shared across the deployment."
   type        = string
   default     = "__CLUSTER_NAME__"
 }
 
-# IRSA assume-role literals
 variable "irsa_assume_role_effect" {
   description = "Effect on the IRSA assume-role policy statement."
   type        = string
@@ -161,7 +148,6 @@ variable "irsa_assume_role_audience" {
   default     = "sts.amazonaws.com"
 }
 
-# Pod Identity assume-role literals
 variable "pod_identity_assume_role_effect" {
   description = "Effect on the Pod Identity assume-role policy statement."
   type        = string
@@ -186,7 +172,6 @@ variable "pod_identity_assume_role_principal_service" {
   default     = "pods.eks.amazonaws.com"
 }
 
-# Service-role assume-role literals
 variable "service_role_assume_effect" {
   description = "Effect on the service-role assume-role policy statement."
   type        = string

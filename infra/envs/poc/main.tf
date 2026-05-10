@@ -1,7 +1,7 @@
 module "cloudwatch" {
   source = "../../modules/cloudwatch"
 
-  cluster_name       = local.master_prefix
+  name               = local.master_prefix
   log_retention_days = var.log_retention_days
   log_groups         = var.log_groups
   tags               = local.common_tags
@@ -10,7 +10,8 @@ module "cloudwatch" {
 module "networking" {
   source = "../../modules/networking"
 
-  cluster_name        = local.master_prefix
+  name                = local.master_prefix
+  eks_cluster_name    = "${local.master_prefix}-cluster"
   vpc_cidr            = var.vpc_cidr
   availability_zones  = var.availability_zones
   public_subnet_cidrs = var.public_subnet_cidrs
@@ -20,7 +21,7 @@ module "networking" {
 module "ecr" {
   source = "../../modules/ecr"
 
-  cluster_name = local.master_prefix
+  name         = local.master_prefix
   repositories = var.ecr_repositories
   tags         = local.common_tags
 }
@@ -28,7 +29,7 @@ module "ecr" {
 module "cognito" {
   source = "../../modules/cognito"
 
-  cluster_name  = local.master_prefix
+  name          = local.master_prefix
   domain_prefix = var.cognito_domain_prefix
   app_clients   = var.cognito_app_clients
   tags          = local.common_tags
@@ -37,15 +38,15 @@ module "cognito" {
 module "secrets" {
   source = "../../modules/secrets"
 
-  cluster_name = local.master_prefix
-  secrets      = var.secrets
-  tags         = local.common_tags
+  name    = local.master_prefix
+  secrets = var.secrets
+  tags    = local.common_tags
 }
 
 module "iam" {
   source = "../../modules/iam"
 
-  cluster_name       = local.master_prefix
+  name               = local.master_prefix
   aws_region         = var.aws_region
   aws_account_id     = data.aws_caller_identity.current.account_id
   service_roles      = var.iam_service_roles
@@ -57,7 +58,7 @@ module "iam" {
 module "eks" {
   source = "../../modules/eks"
 
-  cluster_name           = local.master_prefix
+  name                   = local.master_prefix
   cluster_version        = var.eks_cluster_version
   vpc_id                 = module.networking.vpc_id
   subnet_ids             = module.networking.public_subnet_ids

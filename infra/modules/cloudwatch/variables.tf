@@ -1,10 +1,10 @@
-variable "cluster_name" {
-  description = "EKS cluster name prefix."
+variable "name" {
+  description = "Name prefix applied to every resource (typically the master_prefix from the composition, e.g. 'poc-max-weather')."
   type        = string
 }
 
 variable "cluster_name_placeholder" {
-  description = "Literal placeholder token in log group names that is substituted with var.cluster_name at apply time."
+  description = "Literal placeholder token in log group names that is substituted with var.name at apply time."
   type        = string
   default     = "__CLUSTER_NAME__"
 }
@@ -22,9 +22,9 @@ variable "tags" {
 }
 
 variable "log_groups" {
-  description = "Map of CloudWatch log groups to create, keyed by short name. Each entry defines the log group name (which may interpolate var.cluster_name via the literal placeholder __CLUSTER_NAME__) and an optional per-group retention override. When retention_days is null, var.log_retention_days applies."
+  description = "Map of CloudWatch log groups to create, keyed by short name. Each entry's optional name field overrides the default <var.name>-<key>-logs naming and may interpolate var.name via the literal placeholder __CLUSTER_NAME__. When name is null the default applies. When retention_days is null, var.log_retention_days applies."
   type = map(object({
-    name           = string
+    name           = optional(string)
     retention_days = optional(number)
   }))
   default = {

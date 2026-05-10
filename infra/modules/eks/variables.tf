@@ -1,6 +1,12 @@
-variable "cluster_name" {
-  description = "EKS cluster name."
+variable "name" {
+  description = "Name prefix applied to every resource (typically the master_prefix from the composition, e.g. 'poc-max-weather'). The EKS cluster itself is named <var.name><var.cluster_name_suffix>."
   type        = string
+}
+
+variable "cluster_name_suffix" {
+  description = "Suffix appended to var.name to form the EKS cluster name."
+  type        = string
+  default     = "-cluster"
 }
 
 variable "cluster_version" {
@@ -217,7 +223,7 @@ variable "partition_placeholder" {
 }
 
 variable "node_group_name_separator" {
-  description = "Separator placed between var.cluster_name and the node-group map key when synthesizing the upstream `name` argument."
+  description = "Separator placed between var.name and the node-group map key when synthesizing the upstream `name` argument."
   type        = string
   default     = "-"
 }
@@ -235,7 +241,7 @@ variable "cluster_autoscaler_enabled_tag_value" {
 }
 
 variable "cluster_autoscaler_owned_tag_key_prefix" {
-  description = "Prefix for the per-cluster Cluster Autoscaler ownership tag. The cluster name is appended to form the full key (k8s.io/cluster-autoscaler/<cluster_name>)."
+  description = "Prefix for the per-cluster Cluster Autoscaler ownership tag. The full EKS cluster name (var.name + var.cluster_name_suffix) is appended to form the full key (k8s.io/cluster-autoscaler/<cluster_name>)."
   type        = string
   default     = "k8s.io/cluster-autoscaler/"
 }
@@ -247,7 +253,7 @@ variable "cluster_autoscaler_owned_tag_value" {
 }
 
 variable "karpenter_discovery_tag_key" {
-  description = "Tag key consumed by Karpenter EC2NodeClass.securityGroupSelectorTerms / subnetSelectorTerms (and applied to karpenter sub-module resources)."
+  description = "Tag key consumed by Karpenter EC2NodeClass.securityGroupSelectorTerms / subnetSelectorTerms (and applied to karpenter sub-module resources). Tag value is the full EKS cluster name (var.name + var.cluster_name_suffix)."
   type        = string
   default     = "karpenter.sh/discovery"
 }
@@ -265,9 +271,15 @@ variable "karpenter_create_instance_profile" {
 }
 
 variable "karpenter_iam_role_name_suffix" {
-  description = "Suffix appended to var.cluster_name to form the karpenter controller IAM role and policy name."
+  description = "Suffix appended to var.name to form the karpenter controller IAM role name."
   type        = string
-  default     = "-karpenter-controller"
+  default     = "-karpenter-controller-role"
+}
+
+variable "karpenter_iam_policy_name_suffix" {
+  description = "Suffix appended to var.name to form the karpenter controller IAM policy name."
+  type        = string
+  default     = "-karpenter-controller-policy"
 }
 
 variable "karpenter_iam_role_use_name_prefix" {
@@ -283,9 +295,9 @@ variable "karpenter_iam_policy_use_name_prefix" {
 }
 
 variable "karpenter_node_iam_role_name_suffix" {
-  description = "Suffix appended to var.cluster_name to form the karpenter node IAM role name."
+  description = "Suffix appended to var.name to form the karpenter node IAM role name."
   type        = string
-  default     = "-karpenter-node"
+  default     = "-karpenter-node-role"
 }
 
 variable "karpenter_node_iam_role_use_name_prefix" {
@@ -295,9 +307,9 @@ variable "karpenter_node_iam_role_use_name_prefix" {
 }
 
 variable "karpenter_queue_name_suffix" {
-  description = "Suffix appended to var.cluster_name to form the karpenter SQS queue name (receives EC2 spot interruption / health events)."
+  description = "Suffix appended to var.name to form the karpenter SQS queue name (receives EC2 spot interruption / health events)."
   type        = string
-  default     = "-karpenter"
+  default     = "-karpenter-queue"
 }
 
 variable "karpenter_node_additional_policies" {
@@ -317,4 +329,3 @@ variable "pod_identity_associations" {
   }))
   default = {}
 }
-

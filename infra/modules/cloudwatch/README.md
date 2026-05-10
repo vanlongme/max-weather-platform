@@ -12,10 +12,19 @@ defaults that match the existing weather-api stack:
 | `api_gateway` | `/aws/apigateway/{cluster}-api` | API Gateway access logs. |
 | `jenkins` | `/aws/ec2/{cluster}-jenkins` | Jenkins build/runtime logs. |
 
-Each entry's `name` may include the literal placeholder `__CLUSTER_NAME__`,
-which the module substitutes with `var.cluster_name` at apply time. An optional
+Each entry's optional `name` field overrides the default
+`${var.name}-${key}-logs` naming and may include the literal placeholder
+`__CLUSTER_NAME__`, which the module substitutes with `var.name` at apply time.
+When `name` is null the default `${var.name}-${key}-logs` is used. An optional
 `retention_days` per entry overrides the module-wide `var.log_retention_days`
 default.
+
+## Resource naming
+
+| Resource | Name |
+|----------|------|
+| `aws_cloudwatch_log_group` (default) | `${var.name}-${key}-logs` (e.g. `poc-max-weather-eks_application-logs`) |
+| `aws_cloudwatch_log_group` (override) | `each.value.name` (with `__CLUSTER_NAME__` substituted) |
 
 ## Usage
 
@@ -24,7 +33,7 @@ Default set of 5 log groups:
 ```hcl
 module "cloudwatch" {
   source             = "../../modules/cloudwatch"
-  cluster_name       = "weather-api"
+  name               = "poc-max-weather"
   log_retention_days = 30
   tags               = { Environment = "dev" }
 }
@@ -59,7 +68,7 @@ locals {
 
 module "cloudwatch" {
   source             = "../../modules/cloudwatch"
-  cluster_name       = "weather-api"
+  name               = "poc-max-weather"
   log_retention_days = 30
   tags               = { Environment = "dev" }
 
@@ -82,11 +91,11 @@ the merge.
 
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
-| `cluster_name` | EKS cluster name prefix. | `string` | n/a |
+| `name` | Name prefix applied to every resource (typically the master_prefix from the composition, e.g. `poc-max-weather`). | `string` | n/a |
 | `log_retention_days` | Default log retention in days, applied when an entry's `retention_days` is null. | `number` | `30` |
 | `tags` | Common tags. | `map(string)` | `{}` |
-| `log_groups` | Map of CloudWatch log groups to create, keyed by short name. Each entry has `name` (may contain `__CLUSTER_NAME__`) and optional `retention_days`. **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = string, retention_days = optional(number) }))</code> | The 5 entries listed above. |
-| `cluster_name_placeholder` | Literal placeholder token in `log_groups[*].name` substituted with `var.cluster_name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
+| `log_groups` | Map of CloudWatch log groups to create, keyed by short name. Each entry has optional `name` (defaults to `${var.name}-${key}-logs`; may contain `__CLUSTER_NAME__`) and optional `retention_days`. **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = optional(string), retention_days = optional(number) }))</code> | The 5 entries listed above. |
+| `cluster_name_placeholder` | Literal placeholder token in `log_groups[*].name` substituted with `var.name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
 
 ## Outputs
 

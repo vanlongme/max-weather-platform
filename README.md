@@ -183,6 +183,32 @@ Key variables:
 All resources are tagged with `Project=max-weather` so cost and cleanup queries
 can scope to this assessment.
 
+### Resource naming convention
+
+Every module accepts a single `var.name` prefix (composition wires
+`name = local.master_prefix` where `master_prefix = "${environment}-${project}"` → `poc-max-weather`).
+Each resource appends a type suffix (overridable via the corresponding
+`*_name_suffix` variable on the module — defaults preserve byte-for-byte behavior).
+With the default suffix scheme:
+
+| Module | Resource | Final name (e.g. `var.name = "poc-max-weather"`) |
+|--------|----------|---------------------------------------------------|
+| `eks` | cluster | `poc-max-weather-cluster` |
+| `eks` | karpenter controller role / policy | `poc-max-weather-karpenter-controller-role` / `-policy` |
+| `eks` | karpenter node role / SQS queue | `poc-max-weather-karpenter-node-role` / `poc-max-weather-karpenter-queue` |
+| `iam` | role (per map key) | `poc-max-weather-<key>-role` |
+| `networking` | VPC / IGW / public RT | `poc-max-weather-vpc` / `-igw` / `-public-rt` |
+| `cognito` | UserPool / app client | `poc-max-weather-userpool` / `poc-max-weather-<key>-client` |
+| `ecr` | repository | `poc-max-weather-<key>-repo` |
+| `secrets` | secret | `poc-max-weather-<key>-secret` |
+| `cloudwatch` | log group | `poc-max-weather-<key>-logs` |
+
+The `networking` module additionally takes `var.eks_cluster_name` (composition
+passes `"${local.master_prefix}-cluster"`) to set the value of
+`kubernetes.io/cluster/<cluster_name>` and `karpenter.sh/discovery` subnet
+tags — these tag VALUES must equal the actual EKS cluster name for subnet
+discovery to work.
+
 ## Cost Estimate
 
 Steady-state monthly cost (us-east-1, on-demand pricing) for the POC stack

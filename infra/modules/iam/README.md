@@ -15,13 +15,30 @@ module emits an `aws_iam_role` per pod_identity_roles entry plus the
 `pod_identity_role_bindings` output (`{namespace, service_account, role_arn}`),
 which is fed straight into the eks module's `pod_identity_associations` input.
 
+## Resource naming
+
+Each role is named `${var.name}-${role_name_suffix or map_key}${var.role_name_suffix}`.
+With `var.name = "poc-max-weather"` and the default `role_name_suffix = "-role"`:
+
+| Role map key          | Role name                                       |
+|-----------------------|-------------------------------------------------|
+| `jenkins`             | `poc-max-weather-jenkins-role`                  |
+| `cluster-autoscaler`  | `poc-max-weather-cluster-autoscaler-role`       |
+| `fluent-bit`          | `poc-max-weather-fluent-bit-role`               |
+| `aws-lb-controller`   | `poc-max-weather-aws-lb-controller-role`        |
+| `external-secrets`    | `poc-max-weather-external-secrets-role`         |
+
+Set the per-entry `role_name_suffix` field to decouple the role's middle
+component from the map key (the global `var.role_name_suffix` is still
+appended). Set `var.role_name_suffix = ""` to omit the trailing `-role`.
+
 ## Usage
 
 ```hcl
 module "iam" {
   source = "../../modules/iam"
 
-  cluster_name   = var.cluster_name
+  name           = local.master_prefix
   aws_region     = var.aws_region
   aws_account_id = data.aws_caller_identity.current.account_id
   tags           = local.common_tags
@@ -70,25 +87,21 @@ are substituted at apply time:
 | `__AWS_PARTITION__` | `data.aws_partition.current.partition` |
 | `__AWS_REGION__` | `var.aws_region` |
 | `__AWS_ACCOUNT_ID__` | `var.aws_account_id` |
-| `__CLUSTER_NAME__` | `var.cluster_name` |
+| `__CLUSTER_NAME__` | `var.name` (the resource name prefix) |
 
 This is what lets the Jenkins default policy scope `lambda:UpdateFunctionCode`
 to `arn:__AWS_PARTITION__:lambda:__AWS_REGION__:__AWS_ACCOUNT_ID__:function:__CLUSTER_NAME__-*`
 without baking partition/region/account into the policy JSON.
 
-## Role naming
-
-Each role is named `${var.cluster_name}-${role_name_suffix or map_key}`. Set
-`role_name_suffix` per entry to decouple the IAM role name from the map key.
-
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| `cluster_name` | EKS cluster name (used for role naming + policy templating). | `string` | n/a | yes |
+| `name` | Resource name prefix (typically `local.master_prefix`). | `string` | n/a | yes |
 | `aws_region` | AWS region (substitutes `__AWS_REGION__`). | `string` | n/a | yes |
 | `aws_account_id` | AWS account ID (substitutes `__AWS_ACCOUNT_ID__`). | `string` | n/a | yes |
 | `tags` | Common tags. | `map(string)` | `{}` | no |
+| `role_name_suffix` | Suffix appended to every role name. | `string` | `"-role"` | no |
 | `service_roles` | AWS service-principal roles (Lambda, EC2, etc.). | `map(object)` | `{}` | no |
 | `irsa_roles` | OIDC web-identity roles (legacy IRSA). Requires `oidc_provider_arn` + `oidc_provider_url`. | `map(object)` | `{}` | no |
 | `pod_identity_roles` | Pod Identity roles. `null` ships the 5 built-in defaults; supplying a map replaces them. | `map(object)` | `null` | no |

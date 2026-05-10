@@ -4,13 +4,18 @@ Creates AWS Secrets Manager secrets for the weather-api platform. The set of
 secrets is fully driven by the `secrets` variable; the module ships sensible
 defaults that match the existing weather-api stack:
 
-| Key | Secret Name | Purpose |
-|-----|-------------|---------|
-| `cognito_client_secret` | `/{cluster}/cognito/client-secret` | Holds the Cognito app client secret. Populated externally after Cognito apply (Terraform manages the secret container; the secret value is `ignore_changes`). |
-| `app_config` | `/{cluster}/app/config` | weather-api runtime configuration. Initial value is bootstrap-only; subsequent updates are managed externally. |
+| Key | Default Secret Name | Purpose |
+|-----|---------------------|---------|
+| `cognito_client_secret` | `/{name}/cognito/client-secret` | Holds the Cognito app client secret. Populated externally after Cognito apply (Terraform manages the secret container; the secret value is `ignore_changes`). |
+| `app_config` | `/{name}/app/config` | weather-api runtime configuration. Initial value is bootstrap-only; subsequent updates are managed externally. |
 
-Each entry's `name` may include the literal placeholder `__CLUSTER_NAME__`,
-which the module substitutes with `var.cluster_name` at apply time.
+## Resource naming
+
+When an entry's `name` field is omitted the module derives `${var.name}-${key}-secret`.
+When `name` is supplied the module substitutes the literal placeholder
+`__CLUSTER_NAME__` (configurable via `var.cluster_name_placeholder`) with
+`var.name` at apply time, giving callers full control over the final secret
+path. Both the resource `name` and the `Name` tag use the same derived value.
 
 All managed secrets ship with `lifecycle { ignore_changes = [secret_string] }`
 so callers can rotate values out-of-band without Terraform reverting them.
@@ -21,9 +26,9 @@ Default set of two secrets (zero-config):
 
 ```hcl
 module "secrets" {
-  source       = "../../modules/secrets"
-  cluster_name = "weather-api"
-  tags         = { Environment = "dev", Project = "weather-api" }
+  source = "../../modules/secrets"
+  name   = "poc-max-weather"
+  tags   = { Environment = "poc", Project = "max-weather" }
 }
 ```
 
@@ -35,9 +40,9 @@ built-ins, re-declare them explicitly:
 
 ```hcl
 module "secrets" {
-  source       = "../../modules/secrets"
-  cluster_name = "weather-api"
-  tags         = { Environment = "dev" }
+  source = "../../modules/secrets"
+  name   = "poc-max-weather"
+  tags   = { Environment = "poc" }
 
   secrets = {
     cognito_client_secret = {
@@ -59,16 +64,17 @@ module "secrets" {
 ```
 
 When `initial_value` is null, no `aws_secretsmanager_secret_version` is created
-— the caller is responsible for populating the secret value externally.
+— the caller is responsible for populating the secret value externally. When
+the entry's `name` is null, the module falls back to `${var.name}-${key}-secret`.
 
 ## Inputs
 
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
-| `cluster_name` | EKS cluster name prefix. | `string` | n/a |
+| `name` | Name prefix applied to every resource (typically the master_prefix from the composition, e.g. `poc-max-weather`). | `string` | n/a |
 | `tags` | Common tags. | `map(string)` | `{}` |
-| `secrets` | Map of Secrets Manager secrets, keyed by short name. Each value has `name` (may contain `__CLUSTER_NAME__`), optional `description`, optional `initial_value`, and optional `recovery_window_in_days` (default 7). **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = string, description = optional(string), initial_value = optional(string), recovery_window_in_days = optional(number, 7) }))</code> | `cognito_client_secret` + `app_config` |
-| `cluster_name_placeholder` | Literal placeholder token in `secrets[*].name` substituted with `var.cluster_name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
+| `secrets` | Map of Secrets Manager secrets, keyed by short name. Each value has optional `name` (may contain `__CLUSTER_NAME__`; falls back to `${var.name}-${key}-secret` when null), optional `description`, optional `initial_value`, and optional `recovery_window_in_days` (default 7). **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = optional(string), description = optional(string), initial_value = optional(string), recovery_window_in_days = optional(number, 7) }))</code> | `cognito_client_secret` + `app_config` |
+| `cluster_name_placeholder` | Literal placeholder token in `secrets[*].name` substituted with `var.name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
 
 ## Outputs
 

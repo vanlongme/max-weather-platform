@@ -108,11 +108,13 @@ cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
 # # }
 
 # ###############################################################################
-# # ECR repositories — map keyed by full repo name; per-repo overrides optional
+# # ECR repositories — map keyed by short repo name. The full repository name
+# # is derived as `${master_prefix}-${key}-repo` (e.g. "poc-max-weather-api-repo").
 # ###############################################################################
 # # ecr_repositories = {
-# #   "max-weather-api"               = {}
-# #   "max-weather-lambda-authorizer" = { keep_tagged_image_count = 5 }
+# #   api               = {}
+# #   lambda-authorizer = { keep_tagged_image_count = 5 }
+# #   base-nodejs       = {}
 # # }
 
 # ###############################################################################

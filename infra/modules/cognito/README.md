@@ -2,6 +2,13 @@
 
 Creates a Cognito User Pool, Resource Server, hosted UI domain, and one or more App Clients (default: a single `client_credentials` OAuth2 M2M client for the weather-api).
 
+## Resource naming
+
+| Resource | Name |
+|----------|------|
+| `aws_cognito_user_pool` | `${var.name}-userpool` (e.g. `poc-max-weather-userpool`) |
+| `aws_cognito_user_pool_client` | `${var.name}-${name_suffix \|\| key}-client` (e.g. `poc-max-weather-weather-api-client`) |
+
 ## Usage
 
 Defaults — single `weather-api` client (zero-config):
@@ -9,7 +16,7 @@ Defaults — single `weather-api` client (zero-config):
 ```hcl
 module "cognito" {
   source        = "../../modules/cognito"
-  cluster_name  = "weather-api"
+  name          = "poc-max-weather"
   domain_prefix = "weather-api-dev-12345"
   tags          = { Environment = "dev" }
 }
@@ -20,7 +27,7 @@ Multiple clients — supplying `app_clients` REPLACES the default map entirely, 
 ```hcl
 module "cognito" {
   source        = "../../modules/cognito"
-  cluster_name  = "weather-api"
+  name          = "poc-max-weather"
   domain_prefix = "weather-api-dev-12345"
 
   app_clients = {
@@ -36,17 +43,17 @@ The token endpoint and JWKS URI are exposed as outputs for the API Gateway / Lam
 
 | Name | Description | Type | Default |
 |------|-------------|------|---------|
-| `cluster_name` | Project prefix for resource naming. | `string` | n/a |
+| `name` | Name prefix applied to every resource (typically the master_prefix from the composition, e.g. `poc-max-weather`). | `string` | n/a |
 | `domain_prefix` | Globally-unique prefix for Cognito hosted UI domain. | `string` | n/a |
 | `resource_server_identifier` | URI identifier for the resource server. | `string` | `"weather-api"` |
 | `tags` | Common tags. | `map(string)` | `{}` |
-| `app_clients` | Map of app clients to create, keyed by short name. Each value is an object with optional `name_suffix` (defaults to the map key), `generate_secret` (default `true`), `allowed_oauth_flows_user_pool_client` (default `true`), `allowed_oauth_flows` (default `["client_credentials"]`), `allowed_oauth_scopes` (default `["${resource_server_identifier}/read"]`), `supported_identity_providers` (default `["COGNITO"]`). Final client name is `"${cluster_name}-${name_suffix}-client"`. **Supplying this variable replaces the default map entirely.** | `map(object({...}))` | `{ weather_api = { name_suffix = "weather-api" } }` |
-| `user_pool_name_suffix` | Suffix appended to `var.cluster_name` to form the User Pool name. | `string` | `"-users"` |
+| `app_clients` | Map of app clients to create, keyed by short name. Each value is an object with optional `name_suffix` (defaults to the map key), `generate_secret` (default `true`), `allowed_oauth_flows_user_pool_client` (default `true`), `allowed_oauth_flows` (default `["client_credentials"]`), `allowed_oauth_scopes` (default `["${resource_server_identifier}/read"]`), `supported_identity_providers` (default `["COGNITO"]`). Final client name is `"${name}-${name_suffix}-client"`. **Supplying this variable replaces the default map entirely.** | `map(object({...}))` | `{ weather_api = { name_suffix = "weather-api" } }` |
+| `user_pool_name_suffix` | Suffix appended to `var.name` to form the User Pool name. | `string` | `"-userpool"` |
 | `password_policy` | Cognito User Pool password policy (5-field object: `minimum_length`, `require_uppercase`, `require_lowercase`, `require_numbers`, `require_symbols`). | `object` | `{ minimum_length=12, require_uppercase=true, require_lowercase=true, require_numbers=true, require_symbols=false }` |
 | `resource_server_name` | Display name for the Cognito Resource Server. | `string` | `"weather-api"` |
 | `resource_server_scope_name` | Scope short name on the resource server. | `string` | `"read"` |
 | `resource_server_scope_description` | Description for the resource server scope. | `string` | `"Read access to weather endpoints"` |
-| `client_name_suffix` | Suffix appended to `${cluster_name}-${name_suffix}` to form each app client name. | `string` | `"-client"` |
+| `client_name_suffix` | Suffix appended to `${name}-${name_suffix}` to form each app client name. | `string` | `"-client"` |
 | `default_oauth_scope_suffix` | Suffix appended to `var.resource_server_identifier` to form the default OAuth scope when an app client omits `allowed_oauth_scopes`. | `string` | `"/read"` |
 | `cognito_endpoint_scheme` | URL scheme used to compose Cognito output URLs (`token_endpoint`, `jwks_uri`). | `string` | `"https://"` |
 | `cognito_domain_suffix` | DNS sub-domain segment appended to `var.domain_prefix` to form the full hosted UI hostname. | `string` | `".auth."` |

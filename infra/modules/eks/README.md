@@ -4,8 +4,8 @@ Thin wrapper around the upstream
 [`terraform-aws-modules/eks/aws`](https://github.com/terraform-aws-modules/terraform-aws-eks)
 (v21.20) that provisions:
 
-- An EKS cluster with public + private API endpoints, public access locked to
-  `var.allowed_cidrs` (`0.0.0.0/0` is rejected by validation).
+- An EKS cluster named `${var.name}${var.cluster_name_suffix}` with public + private API endpoints,
+  public access locked to `var.allowed_cidrs` (`0.0.0.0/0` is rejected by validation).
 - One or more managed node groups driven by the `eks_managed_node_groups` map
   (default: a single `general` group — Bottlerocket x86_64, ON_DEMAND `t3.medium`,
   min 1 / max 10 / desired 1 — tagged for Cluster Autoscaler discovery; serves as
@@ -20,10 +20,27 @@ Thin wrapper around the upstream
   merged in via `access_entries`.
 - Karpenter scaffolding via the upstream
   [`karpenter` sub-module](https://github.com/terraform-aws-modules/terraform-aws-eks/tree/master/modules/karpenter):
-  controller IAM role (via **EKS Pod Identity** as of v21 — no IRSA
+  controller IAM role + policy (via **EKS Pod Identity** as of v21 — no IRSA
   ServiceAccount annotation needed), node IAM role + instance profile, SQS
   queue, and EventBridge rules. The actual Karpenter Helm chart and
   `EC2NodeClass` / `NodePool` objects live under `k8s/helm/karpenter/`.
+
+## Resource naming
+
+Every resource name is derived from `var.name` plus a per-resource suffix.
+With `var.name = "poc-max-weather"` and the default suffixes:
+
+| Resource                              | Name                                          |
+|---------------------------------------|-----------------------------------------------|
+| EKS cluster                           | `poc-max-weather-cluster`                     |
+| Managed node group (`general` key)    | `poc-max-weather-general`                     |
+| Karpenter controller IAM role         | `poc-max-weather-karpenter-controller-role`   |
+| Karpenter controller IAM policy       | `poc-max-weather-karpenter-controller-policy` |
+| Karpenter node IAM role               | `poc-max-weather-karpenter-node-role`         |
+| Karpenter SQS queue                   | `poc-max-weather-karpenter-queue`             |
+
+Override any suffix via the corresponding `*_suffix` variable
+(e.g. `cluster_name_suffix = "-eks"` → `poc-max-weather-eks`).
 
 ## Usage
 
@@ -31,7 +48,7 @@ Thin wrapper around the upstream
 module "eks" {
   source = "../../modules/eks"
 
-  cluster_name    = "max-weather"
+  name            = "poc-max-weather"
   cluster_version = "1.34"
 
   vpc_id     = module.networking.vpc_id
@@ -97,7 +114,8 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| `cluster_name` | EKS cluster name. | `string` | n/a | yes |
+| `name` | Name prefix for every resource (typically `local.master_prefix`). | `string` | n/a | yes |
+| `cluster_name_suffix` | Suffix appended to `var.name` for the EKS cluster name. | `string` | `"-cluster"` | no |
 | `cluster_version` | Kubernetes version. | `string` | `"1.34"` | no |
 | `vpc_id` | VPC ID for the cluster. | `string` | n/a | yes |
 | `subnet_ids` | Subnet IDs for nodes + control plane ENIs (POC: public, prod: private). | `list(string)` | n/a | yes |
@@ -107,8 +125,8 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | `jenkins_access_namespaces` | Kubernetes namespaces granted Edit access for `var.jenkins_role_arn`. | `list(string)` | `["weather-staging", "weather-prod"]` | no |
 | `pod_identity_associations` | Map of EKS Pod Identity associations to create on this cluster (key = arbitrary id; value = `{ namespace, service_account, role_arn }`). Typically fed from `module.iam.pod_identity_role_bindings`. | `map(object({namespace=string, service_account=string, role_arn=string}))` | `{}` | no |
 | `eks_managed_node_groups` | Map of EKS managed node group definitions, keyed by group name. Passed through to the upstream `eks_managed_node_groups` input. | `map(object)` | single `general` group | no |
-| `eks_managed_node_group_defaults` | Defaults applied to every managed node group; per-group overrides win. | `any` | `{ attach_cluster_primary_security_group = false }` | no |
-| `cluster_addons` | Map of EKS add-ons to enable. Passed through to the upstream `cluster_addons` input. | `any` | CoreDNS / kube-proxy / VPC CNI / Pod Identity Agent | no |
+| `eks_managed_node_group_defaults` | Defaults applied to every managed node group; per-group overrides win. | `any` | `{ attach_cluster_primary_security_group = false, enable_monitoring = true, use_latest_ami_release_version = false }` | no |
+| `cluster_addons` | Map of EKS add-ons to enable. Passed through to the upstream `addons` input. | `any` | CoreDNS / kube-proxy / VPC CNI / Pod Identity Agent | no |
 | `access_entries` | Extra access entries merged after the built-in operator + jenkins entries (user-supplied entries win on key collision). | `any` | `{}` | no |
 | `tags` | Common tags applied to all resources. | `map(string)` | `{}` | no |
 | `endpoint_public_access` | Whether the EKS API server endpoint is reachable from the public internet (restricted further by `var.allowed_cidrs`). | `bool` | `true` | no |
@@ -126,7 +144,7 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | `jenkins_cluster_access_policy_arn_template` | ARN template for the namespace-scoped Edit policy. | `string` | `"arn:__AWS_PARTITION__:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"` | no |
 | `jenkins_access_scope_type` | Access scope type for the jenkins policy association. | `string` | `"namespace"` | no |
 | `partition_placeholder` | Literal placeholder substituted with `data.aws_partition.current.partition`. | `string` | `"__AWS_PARTITION__"` | no |
-| `node_group_name_separator` | Separator between `var.cluster_name` and the node-group map key. | `string` | `"-"` | no |
+| `node_group_name_separator` | Separator between `var.name` and the node-group map key. | `string` | `"-"` | no |
 | `cluster_autoscaler_enabled_tag_key` | Node-group tag key signalling Cluster Autoscaler should consider this ASG. | `string` | `"k8s.io/cluster-autoscaler/enabled"` | no |
 | `cluster_autoscaler_enabled_tag_value` | Tag value for the Cluster Autoscaler enabled tag. | `string` | `"true"` | no |
 | `cluster_autoscaler_owned_tag_key_prefix` | Prefix for the per-cluster Cluster Autoscaler ownership tag. | `string` | `"k8s.io/cluster-autoscaler/"` | no |
@@ -134,19 +152,20 @@ A complete invocation lives in [`terraform.tfvars.example`](./terraform.tfvars.e
 | `karpenter_discovery_tag_key` | Tag key consumed by Karpenter `EC2NodeClass`. | `string` | `"karpenter.sh/discovery"` | no |
 | `karpenter_create_pod_identity_association` | Whether the karpenter sub-module creates an EKS Pod Identity association. | `bool` | `true` | no |
 | `karpenter_create_instance_profile` | Whether the karpenter sub-module creates the EC2 instance profile. | `bool` | `true` | no |
-| `karpenter_iam_role_name_suffix` | Suffix appended to `var.cluster_name` for the karpenter controller IAM role/policy. | `string` | `"-karpenter-controller"` | no |
+| `karpenter_iam_role_name_suffix` | Suffix appended to `var.name` for the karpenter controller IAM role. | `string` | `"-karpenter-controller-role"` | no |
+| `karpenter_iam_policy_name_suffix` | Suffix appended to `var.name` for the karpenter controller IAM policy. | `string` | `"-karpenter-controller-policy"` | no |
 | `karpenter_iam_role_use_name_prefix` | Whether `iam_role_name` is treated as a name_prefix. | `bool` | `false` | no |
 | `karpenter_iam_policy_use_name_prefix` | Whether `iam_policy_name` is treated as a name_prefix. | `bool` | `false` | no |
-| `karpenter_node_iam_role_name_suffix` | Suffix appended to `var.cluster_name` for the karpenter node IAM role. | `string` | `"-karpenter-node"` | no |
+| `karpenter_node_iam_role_name_suffix` | Suffix appended to `var.name` for the karpenter node IAM role. | `string` | `"-karpenter-node-role"` | no |
 | `karpenter_node_iam_role_use_name_prefix` | Whether `node_iam_role_name` is treated as a name_prefix. | `bool` | `false` | no |
-| `karpenter_queue_name_suffix` | Suffix appended to `var.cluster_name` for the karpenter SQS queue name. | `string` | `"-karpenter"` | no |
+| `karpenter_queue_name_suffix` | Suffix appended to `var.name` for the karpenter SQS queue name. | `string` | `"-karpenter-queue"` | no |
 | `karpenter_node_additional_policies` | Managed-policy ARNs attached to the karpenter node IAM role (`__AWS_PARTITION__` substituted). | `map(string)` | `{ AmazonSSMManagedInstanceCore = "arn:__AWS_PARTITION__:iam::aws:policy/AmazonSSMManagedInstanceCore" }` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| `cluster_name` | EKS cluster name. |
+| `cluster_name` | EKS cluster name (`${var.name}${var.cluster_name_suffix}`). |
 | `cluster_endpoint` | API server endpoint URL. |
 | `cluster_ca_data` | Base64-encoded cluster CA. |
 | `cluster_version` | Kubernetes version. |

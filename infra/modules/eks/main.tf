@@ -1,8 +1,12 @@
+locals {
+  cluster_name = "${var.name}${var.cluster_name_suffix}"
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.20"
 
-  name               = var.cluster_name
+  name               = local.cluster_name
   kubernetes_version = var.cluster_version
 
   vpc_id                   = var.vpc_id
@@ -58,17 +62,17 @@ module "eks" {
       var.eks_managed_node_group_defaults,
       v,
       {
-        name = coalesce(v.name, "${var.cluster_name}${var.node_group_name_separator}${k}")
+        name = coalesce(v.name, "${var.name}${var.node_group_name_separator}${k}")
         tags = merge(var.tags, v.tags, {
-          (var.cluster_autoscaler_enabled_tag_key)                            = var.cluster_autoscaler_enabled_tag_value
-          "${var.cluster_autoscaler_owned_tag_key_prefix}${var.cluster_name}" = var.cluster_autoscaler_owned_tag_value
+          (var.cluster_autoscaler_enabled_tag_key)                              = var.cluster_autoscaler_enabled_tag_value
+          "${var.cluster_autoscaler_owned_tag_key_prefix}${local.cluster_name}" = var.cluster_autoscaler_owned_tag_value
         })
       }
     )
   }
 
   node_security_group_tags = merge(var.tags, {
-    (var.karpenter_discovery_tag_key) = var.cluster_name
+    (var.karpenter_discovery_tag_key) = local.cluster_name
   })
 
   tags = var.tags
@@ -93,21 +97,21 @@ module "karpenter" {
   create_pod_identity_association = var.karpenter_create_pod_identity_association
   create_instance_profile         = var.karpenter_create_instance_profile
 
-  iam_role_name              = "${var.cluster_name}${var.karpenter_iam_role_name_suffix}"
+  iam_role_name              = "${var.name}${var.karpenter_iam_role_name_suffix}"
   iam_role_use_name_prefix   = var.karpenter_iam_role_use_name_prefix
-  iam_policy_name            = "${var.cluster_name}${var.karpenter_iam_role_name_suffix}"
+  iam_policy_name            = "${var.name}${var.karpenter_iam_policy_name_suffix}"
   iam_policy_use_name_prefix = var.karpenter_iam_policy_use_name_prefix
 
-  node_iam_role_name            = "${var.cluster_name}${var.karpenter_node_iam_role_name_suffix}"
+  node_iam_role_name            = "${var.name}${var.karpenter_node_iam_role_name_suffix}"
   node_iam_role_use_name_prefix = var.karpenter_node_iam_role_use_name_prefix
 
   node_iam_role_additional_policies = {
     for k, v in var.karpenter_node_additional_policies : k => replace(v, var.partition_placeholder, data.aws_partition.current.partition)
   }
 
-  queue_name = "${var.cluster_name}${var.karpenter_queue_name_suffix}"
+  queue_name = "${var.name}${var.karpenter_queue_name_suffix}"
 
   tags = merge(var.tags, {
-    (var.karpenter_discovery_tag_key) = var.cluster_name
+    (var.karpenter_discovery_tag_key) = local.cluster_name
   })
 }

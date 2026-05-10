@@ -1,6 +1,12 @@
-variable "cluster_name" {
-  description = "EKS cluster name, used for subnet tagging (kubernetes.io/cluster/<name>, karpenter.sh/discovery) and resource naming."
+variable "name" {
+  description = "Name prefix applied to every networking resource (typically the master_prefix from the composition, e.g. 'poc-max-weather'). Used for the Name tag on the VPC, IGW, subnets, and route table."
   type        = string
+}
+
+variable "eks_cluster_name" {
+  description = "Full EKS cluster name used as the VALUE of the kubernetes.io/cluster/<cluster_name> subnet tag and as the value of the karpenter.sh/discovery subnet tag. Must match the actual EKS cluster name produced by the eks module (typically <var.name><eks.cluster_name_suffix>, e.g. 'poc-max-weather-cluster'). Empty string falls back to var.name for backward compatibility."
+  type        = string
+  default     = ""
 }
 
 variable "vpc_cidr" {
@@ -39,25 +45,31 @@ variable "tags" {
 }
 
 variable "vpc_name_suffix" {
-  description = "Suffix appended to var.cluster_name for the VPC Name tag."
+  description = "Suffix appended to var.name for the VPC Name tag."
   type        = string
   default     = "-vpc"
 }
 
 variable "internet_gateway_name_suffix" {
-  description = "Suffix appended to var.cluster_name for the Internet Gateway Name tag."
+  description = "Suffix appended to var.name for the Internet Gateway Name tag."
   type        = string
   default     = "-igw"
 }
 
 variable "public_subnet_name_prefix" {
-  description = "Prefix appended to var.cluster_name (followed by the AZ name) for each public subnet's Name tag."
+  description = "Prefix appended to var.name (followed by the AZ name) for each public subnet's Name tag."
   type        = string
   default     = "-public-"
 }
 
+variable "public_subnet_name_suffix" {
+  description = "Suffix appended after the AZ component of each public subnet's Name tag (e.g. '-subnet' produces 'poc-max-weather-public-us-east-1a-subnet'). Default empty string preserves the historical naming."
+  type        = string
+  default     = ""
+}
+
 variable "public_route_table_name_suffix" {
-  description = "Suffix appended to var.cluster_name for the public route table Name tag."
+  description = "Suffix appended to var.name for the public route table Name tag."
   type        = string
   default     = "-public-rt"
 }
@@ -93,7 +105,7 @@ variable "subnet_tag_role_elb_value" {
 }
 
 variable "subnet_tag_cluster_key_prefix" {
-  description = "Prefix for the EKS cluster subnet discovery tag. The cluster name is appended to form the full key (kubernetes.io/cluster/<cluster_name>)."
+  description = "Prefix for the EKS cluster subnet discovery tag. The full EKS cluster name (var.eks_cluster_name, falling back to var.name) is appended to form the full key (kubernetes.io/cluster/<cluster_name>)."
   type        = string
   default     = "kubernetes.io/cluster/"
 }
@@ -105,7 +117,7 @@ variable "subnet_tag_cluster_value" {
 }
 
 variable "subnet_tag_karpenter_discovery_key" {
-  description = "Subnet tag key consumed by Karpenter EC2NodeClass.subnetSelectorTerms to discover subnets where it may launch nodes."
+  description = "Subnet tag key consumed by Karpenter EC2NodeClass.subnetSelectorTerms to discover subnets where it may launch nodes. Tag value is the full EKS cluster name (var.eks_cluster_name, falling back to var.name)."
   type        = string
   default     = "karpenter.sh/discovery"
 }

@@ -1,12 +1,19 @@
+locals {
+  secret_names = {
+    for key, cfg in var.secrets :
+    key => replace(coalesce(cfg.name, "${var.name}-${key}-secret"), var.cluster_name_placeholder, var.name)
+  }
+}
+
 resource "aws_secretsmanager_secret" "secrets" {
   for_each = var.secrets
 
-  name                    = replace(each.value.name, var.cluster_name_placeholder, var.cluster_name)
+  name                    = local.secret_names[each.key]
   description             = each.value.description
   recovery_window_in_days = each.value.recovery_window_in_days
 
   tags = merge(var.tags, {
-    Name = replace(each.value.name, var.cluster_name_placeholder, var.cluster_name)
+    Name = local.secret_names[each.key]
   })
 }
 
