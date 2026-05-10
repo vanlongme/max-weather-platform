@@ -85,3 +85,9 @@ variable "oidc_provider_url" {
   type        = string
   default     = ""
 }
+
+variable "jenkins_key_name" {
+  description = "EC2 key pair name for Jenkins SSH access."
+  type        = string
+  default     = "max-weather-key"
+}

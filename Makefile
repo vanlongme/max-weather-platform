@@ -1,37 +1,90 @@
-.PHONY: help init plan apply destroy build push deploy-staging deploy-prod test evidence nuke
+REGION     ?= us-east-1
+CLUSTER    ?= max-weather
+NAMESPACE  ?= weather-staging
+GIT_SHA    := $(shell git rev-parse --short HEAD)
+STAGING_DIR := infra/envs/staging
+
+APP_REPO   ?= $(shell cd $(STAGING_DIR) && terraform output -raw weather_api_repository_url 2>/dev/null || echo "PLACEHOLDER_ECR_URL")
+ECR_HOST   := $(shell echo $(APP_REPO) | cut -d/ -f1)
+
+.PHONY: help init plan apply destroy \
+        ecr-login app-build app-build-push app-run-local app-shell \
+        authorizer-package authorizer-deploy \
+        deploy-staging deploy-prod \
+        test lint \
+        evidence nuke
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-init: ## Initialize Terraform (all modules)
-	@echo "TODO: implement in later waves"
+init: ## Initialize Terraform for staging env
+	cd $(STAGING_DIR) && terraform init
 
-plan: ## Plan Terraform changes
-	@echo "TODO: implement in later waves"
+plan: ## Plan Terraform changes for staging env
+	cd $(STAGING_DIR) && terraform plan
 
-apply: ## Apply Terraform changes
-	@echo "TODO: implement in later waves"
+apply: ## Apply Terraform changes for staging env
+	cd $(STAGING_DIR) && terraform apply -auto-approve
 
-destroy: ## Destroy Terraform infrastructure
-	@echo "TODO: implement in later waves"
+destroy: ## Destroy Terraform infrastructure for staging env
+	cd $(STAGING_DIR) && terraform destroy -auto-approve
 
-build: ## Build application and containers
-	@echo "TODO: implement in later waves"
+ecr-login: ## Authenticate Docker to ECR
+	aws ecr get-login-password --region $(REGION) | docker login --username AWS --password-stdin $(ECR_HOST)
 
-push: ## Push container images to registry
-	@echo "TODO: implement in later waves"
+app-build: ## Build weather-api Docker image locally
+	docker buildx build --platform linux/amd64 -t weather-api:$(GIT_SHA) app/
 
-deploy-staging: ## Deploy to staging environment
-	@echo "TODO: implement in later waves"
+app-build-push: ecr-login ## Build and push weather-api image to ECR
+	docker buildx build --platform linux/amd64 \
+		-t $(APP_REPO):staging-$(GIT_SHA) \
+		-t $(APP_REPO):latest \
+		--push app/
 
-deploy-prod: ## Deploy to production environment
-	@echo "TODO: implement in later waves"
+app-run-local: ## Run weather-api locally
+	docker run --rm -p 8080:8080 weather-api:$(GIT_SHA)
 
-test: ## Run all tests
-	@echo "TODO: implement in later waves"
+app-shell: ## Shell into weather-api container
+	docker run --rm -it --entrypoint sh weather-api:$(GIT_SHA)
 
-evidence: ## Generate evidence artifacts
-	@echo "TODO: implement in later waves"
+authorizer-package: ## Package Lambda authorizer ZIP
+	cd lambda-authorizer && rm -rf node_modules
+	cd lambda-authorizer && npm ci --omit=dev
+	mkdir -p dist
+	cd lambda-authorizer && zip -qr ../dist/lambda-authorizer.zip src/ node_modules/ package.json
 
-nuke: ## Destroy all infrastructure and clean up
-	@echo "TODO: implement in later waves"
+authorizer-deploy: authorizer-package ## Deploy Lambda authorizer ZIP to AWS
+	aws lambda update-function-code \
+		--function-name max-weather-authorizer \
+		--zip-file fileb://dist/lambda-authorizer.zip \
+		--region $(REGION)
+	aws lambda wait function-updated \
+		--function-name max-weather-authorizer \
+		--region $(REGION)
+
+deploy-staging: ## Deploy to staging via kubectl kustomize
+	aws eks update-kubeconfig --name $(CLUSTER) --region $(REGION)
+	kubectl apply -k k8s/overlays/staging
+	kubectl rollout status deployment/weather-api -n $(NAMESPACE) --timeout=180s
+
+deploy-prod: ## Deploy to prod via kubectl kustomize
+	aws eks update-kubeconfig --name $(CLUSTER) --region $(REGION)
+	kubectl apply -k k8s/overlays/prod
+	kubectl rollout status deployment/weather-api -n weather-prod --timeout=180s
+
+test: ## Run all tests (app + authorizer)
+	cd app && npm ci && npm test
+	cd lambda-authorizer && npm ci && npm test
+
+lint: ## Lint application code
+	cd app && npm run lint
+
+evidence: ## Collect evidence artifacts into docs/evidence/
+	@mkdir -p docs/evidence/01-terraform docs/evidence/02-eks-nodes \
+		docs/evidence/03-cloudwatch-logs docs/evidence/04-hpa-scaling \
+		docs/evidence/05-api-gateway docs/evidence/06-postman \
+		docs/evidence/07-jenkins docs/evidence/08-teardown
+	@echo "Evidence dirs ready — run scripts/collect-evidence.sh for full collection"
+
+nuke: ## DANGER: Destroy all infrastructure using cloud-nuke
+	scripts/teardown.sh
