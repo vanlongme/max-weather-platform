@@ -3,7 +3,7 @@ data "aws_caller_identity" "current" {}
 locals {
   common_tags = {
     Project     = "max-weather"
-    Environment = "staging"
+    Environment = "poc"
     ManagedBy   = "terraform"
   }
 }
@@ -19,13 +19,11 @@ module "cloudwatch" {
 module "networking" {
   source = "../../modules/networking"
 
-  cluster_name         = var.cluster_name
-  vpc_cidr             = var.vpc_cidr
-  availability_zones   = var.availability_zones
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  single_nat_gateway   = true
-  tags                 = local.common_tags
+  cluster_name        = var.cluster_name
+  vpc_cidr            = var.vpc_cidr
+  availability_zones  = var.availability_zones
+  public_subnet_cidrs = var.public_subnet_cidrs
+  tags                = local.common_tags
 }
 
 module "ecr" {
@@ -56,7 +54,7 @@ module "eks" {
   cluster_name           = var.cluster_name
   cluster_version        = var.eks_cluster_version
   vpc_id                 = module.networking.vpc_id
-  subnet_ids             = module.networking.private_subnet_ids
+  subnet_ids             = module.networking.public_subnet_ids
   allowed_cidrs          = var.allowed_cidrs
   operator_principal_arn = data.aws_caller_identity.current.arn
   jenkins_role_arn       = module.iam.jenkins_role_arn

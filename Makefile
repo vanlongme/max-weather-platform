@@ -2,7 +2,7 @@ REGION     ?= us-east-1
 CLUSTER    ?= max-weather
 NAMESPACE  ?= weather-staging
 GIT_SHA    := $(shell git rev-parse --short HEAD)
-STAGING_DIR := infra/envs/staging
+STAGING_DIR := infra/envs/poc
 
 APP_REPO   ?= $(shell cd $(STAGING_DIR) && terraform output -raw weather_api_repository_url 2>/dev/null || echo "PLACEHOLDER_ECR_URL")
 ECR_HOST   := $(shell echo $(APP_REPO) | cut -d/ -f1)

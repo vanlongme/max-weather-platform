@@ -23,15 +23,9 @@ variable "availability_zones" {
 }
 
 variable "public_subnet_cidrs" {
-  description = "CIDR blocks for public subnets (one per AZ)."
+  description = "CIDR blocks for public subnets (one per AZ). POC topology uses public subnets for both workers and load balancers."
   type        = list(string)
   default     = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
-}
-
-variable "private_subnet_cidrs" {
-  description = "CIDR blocks for private subnets (one per AZ)."
-  type        = list(string)
-  default     = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
 }
 
 variable "eks_cluster_version" {

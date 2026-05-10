@@ -1,0 +1,25 @@
+# Example tfvars for the EKS module.
+# Most consumers should call this module from an env composition (see infra/envs/poc/).
+# These values mirror the env defaults so the module can also be invoked standalone.
+
+cluster_name    = "max-weather"
+cluster_version = "1.30"
+
+vpc_id     = "vpc-REPLACE"
+subnet_ids = ["subnet-REPLACE-AZ1", "subnet-REPLACE-AZ2", "subnet-REPLACE-AZ3"]
+
+allowed_cidrs          = ["YOUR_PUBLIC_IP/32"]
+operator_principal_arn = "arn:aws:iam::REPLACE_ACCOUNT_ID:user/REPLACE_OPERATOR"
+jenkins_role_arn       = "arn:aws:iam::REPLACE_ACCOUNT_ID:role/max-weather-jenkins"
+
+node_instance_types = ["t3.medium"]
+node_min_size       = 2
+node_max_size       = 10
+node_desired_size   = 2
+node_disk_size      = 20
+
+tags = {
+  Project     = "max-weather"
+  Environment = "poc"
+  ManagedBy   = "terraform"
+}

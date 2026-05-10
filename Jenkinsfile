@@ -12,8 +12,8 @@ pipeline {
     CLUSTER    = 'max-weather'
     NAMESPACE  = 'weather-staging'
     GIT_SHA    = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-    APP_REPO   = sh(returnStdout: true, script: 'cd infra/envs/staging && terraform output -raw weather_api_repository_url 2>/dev/null || echo PLACEHOLDER').trim()
-    ECR_HOST   = sh(returnStdout: true, script: 'cd infra/envs/staging && terraform output -raw weather_api_repository_url 2>/dev/null | cut -d/ -f1 || echo PLACEHOLDER').trim()
+    APP_REPO   = sh(returnStdout: true, script: 'cd infra/envs/poc && terraform output -raw weather_api_repository_url 2>/dev/null || echo PLACEHOLDER').trim()
+    ECR_HOST   = sh(returnStdout: true, script: 'cd infra/envs/poc && terraform output -raw weather_api_repository_url 2>/dev/null | cut -d/ -f1 || echo PLACEHOLDER').trim()
   }
 
   stages {

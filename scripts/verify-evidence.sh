@@ -26,7 +26,7 @@ check "docs/architecture.drawio"
 check "docs/architecture.png"
 
 # D2 Terraform
-check "infra/envs/staging/main.tf"
+check "infra/envs/poc/main.tf"
 check "infra/bootstrap/main.tf"
 
 # D3 K8s

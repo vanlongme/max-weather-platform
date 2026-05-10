@@ -12,7 +12,7 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly HELM_DIR="${REPO_ROOT}/k8s/helm"
-readonly STAGING_DIR="${REPO_ROOT}/infra/envs/staging"
+readonly STAGING_DIR="${REPO_ROOT}/infra/envs/poc"
 
 CLUSTER_NAME="${CLUSTER_NAME:-max-weather}"
 AWS_REGION="${AWS_REGION:-us-east-1}"

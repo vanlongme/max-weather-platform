@@ -1,0 +1,15 @@
+repositories = [
+  "max-weather-api",
+  "max-weather-lambda-authorizer",
+]
+
+image_tag_mutability       = "MUTABLE"
+scan_on_push               = true
+keep_tagged_image_count    = 10
+untagged_image_expiry_days = 7
+
+tags = {
+  Project     = "max-weather"
+  Environment = "poc"
+  ManagedBy   = "terraform"
+}

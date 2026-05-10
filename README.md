@@ -29,7 +29,7 @@ The data plane:
 | ID | Deliverable | Location |
 |----|-------------|----------|
 | D1 | Architecture diagram | `docs/architecture.drawio`, `docs/architecture.png` |
-| D2 | Terraform IaC (multi-env, remote state) | `infra/bootstrap/`, `infra/envs/{staging,prod}/`, `infra/modules/` |
+| D2 | Terraform IaC (modular, remote state) | `infra/bootstrap/`, `infra/envs/poc/`, `infra/modules/` (each module ships README.md + terraform.tfvars.example) |
 | D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, `k8s/helm/`, `scripts/install-helm-addons.sh` |
 | D4 | Jenkins CI/CD pipeline | `Jenkinsfile`, `ci/README.md` |
 | D5 | API Gateway + Cognito + Lambda authorizer | `infra/modules/{cognito,api-gateway,lambda-authorizer}/`, `lambda-authorizer/`, `docs/api-gateway-runbook.md` |
@@ -95,10 +95,9 @@ make verify-evidence
 ├── infra/
 │   ├── bootstrap/               # Remote state backend (S3 + DynamoDB)
 │   ├── envs/
-│   │   ├── staging/             # Staging environment composition
-│   │   └── prod/                # Production environment composition
-│   └── modules/                 # Reusable Terraform modules (AWS resources only)
-│       ├── networking/          # VPC, subnets, NAT, route tables
+│   │   └── poc/                 # Single POC composition — hosts both weather-staging + weather-prod namespaces
+│   └── modules/                 # Reusable Terraform modules (each ships README.md + terraform.tfvars.example)
+│       ├── networking/          # VPC + public subnets + IGW (POC: no NAT/private subnets — see module README)
 │       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 20.24 + Karpenter sub-module (IAM, SQS, instance profile)
 │       ├── ecr/                 # Container registries
 │       ├── cognito/             # User Pool, App Client, Resource Server
@@ -144,7 +143,10 @@ make verify-evidence
 
 ## Configuration
 
-Per-environment Terraform variables live in `infra/envs/{staging,prod}/terraform.tfvars`.
+Per-environment Terraform variables live in `infra/envs/poc/terraform.tfvars`
+(copy from `terraform.tfvars.example` and fill in your operator IP and Cognito
+domain prefix). The single `poc` env hosts both `weather-staging` and
+`weather-prod` Kubernetes namespaces in one cluster.
 Key variables:
 
 | Variable | Purpose | Example |
@@ -166,14 +168,14 @@ can scope to this assessment.
 
 ## Cost Estimate
 
-Steady-state monthly cost (us-east-1, on-demand pricing) for the staging stack:
+Steady-state monthly cost (us-east-1, on-demand pricing) for the POC stack
+(public-subnet topology — no NAT GW, no VPC endpoints):
 
 | Service | Monthly USD |
 |---------|-------------|
 | EKS control plane | 73 |
 | 2 x t3.medium worker nodes | 60 |
-| NAT Gateway (1) + traffic | 35 |
-| NLB (created by ingress-nginx Service) | 18 |
+| NLB (created by ingress-nginx Service, internet-facing) | 18 |
 | ECR storage (~5 GB) | 1 |
 | CloudWatch Logs (5 log groups, ~5 GB ingest) | 8 |
 | Container Insights metrics | 5 |
@@ -182,9 +184,16 @@ Steady-state monthly cost (us-east-1, on-demand pricing) for the staging stack:
 | Cognito (under MAU limit) | 0 |
 | Secrets Manager (5 secrets) | 2 |
 | Jenkins t3.small EC2 | 12 |
-| **Total** | **~215** |
+| **Total** | **~180** |
 
-For a 2-day demo (`apply` -> evaluate -> `teardown`), prorated cost is ~$15.
+POC topology savings vs a production-style network:
+
+| Removed | Monthly USD saved |
+|---------|-------------------|
+| NAT Gateway (1) + data processing | ~35 |
+| 3 x Interface VPC Endpoints (ECR API/DKR + Logs) | ~21 |
+
+For a 2-day demo (`apply` -> evaluate -> `teardown`), prorated cost is ~$12.
 Run `make teardown` immediately after evaluation to avoid drift.
 
 ## Authentication
@@ -194,7 +203,7 @@ The API uses Cognito **client_credentials** flow (machine-to-machine), not user 
 ```bash
 TOKEN=$(scripts/get-token.sh)
 curl -H "Authorization: Bearer $TOKEN" \
-  "$(cd infra/envs/staging && terraform output -raw api_gateway_invoke_url)/weather?latitude=10.78&longitude=106.70"
+  "$(cd infra/envs/poc && terraform output -raw api_gateway_invoke_url)/weather?latitude=10.78&longitude=106.70"
 ```
 
 The Lambda authorizer (`lambda-authorizer/src/index.js`):
@@ -281,7 +290,7 @@ This runs `scripts/teardown.sh` which executes 10 phases in order:
 5. `helm uninstall` for all 7 releases: ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server, Karpenter (Karpenter last, after its workloads drain).
 6. `kubectl delete ns` for application and system namespaces.
 7. Prompts for manual API Gateway deletion (it was created out-of-band per `docs/api-gateway-runbook.md`).
-8. `terraform destroy -auto-approve` in `infra/envs/staging` (destroys EKS, Karpenter SQS/IAM, VPC, etc.).
+8. `terraform destroy -auto-approve` in `infra/envs/poc` (destroys EKS, Karpenter SQS/IAM, VPC, etc.).
 9. Optional: cloud-nuke dry-run to surface any orphaned resources.
 10. Prints elapsed time and savings.
 
@@ -305,7 +314,7 @@ aws resourcegroupstaggingapi get-resources \
 - **No secrets in Git.** All secrets (Cognito client_secret, third-party API keys) live in AWS Secrets Manager and are mounted into pods via External Secrets Operator. The Postman environment template ships with empty secret fields.
 - **IRSA everywhere.** Workload pods (Cluster Autoscaler, AWS LB Controller, Fluent Bit, External Secrets, weather-api) use IAM Roles for Service Accounts — no node-level IAM credentials shared across pods.
 - **Least-privilege IAM.** Each module owns its own IAM role with policies scoped to the resources it manages.
-- **Network isolation.** Worker nodes live in private subnets only. Egress goes through the NAT Gateway. Public ingress is API Gateway -> VPC Link -> internal NLB; the NLB has no public DNS.
+- **Network isolation (POC trade-off).** This POC places worker nodes in **public subnets** (each gets a public IPv4) so that ECR / Cognito / Open-Meteo egress works without a NAT Gateway. Inbound exposure is contained by Security Groups (SSH never opened publicly; the EKS API endpoint is locked to `var.allowed_cidrs`; the ingress-nginx NLB is the only intentionally public entry point and is itself fronted by API Gateway + the Cognito-backed Lambda authorizer). For production, switch to private subnets + NAT Gateway (or VPC endpoints for ECR/Logs/STS) and flip the ingress-nginx Service annotation back to `internal`. The networking module ships both `kubernetes.io/role/elb` and `kubernetes.io/role/internal-elb` tags so the production overlay can place internal NLBs without re-tagging.
 - **NetworkPolicies.** `weather-api` pods accept ingress only from `ingress-nginx` and egress only to DNS, Cognito JWKS, and Open-Meteo.
 - **JWT verified offline.** The Lambda authorizer caches Cognito JWKS in memory; signature verification is local.
 - **Image scanning.** ECR repositories have scan-on-push enabled. The Jenkins pipeline fails on `HIGH`/`CRITICAL` findings.
