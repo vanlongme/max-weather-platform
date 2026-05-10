@@ -4,15 +4,13 @@ variable "cluster_name" {
 }
 
 variable "oidc_provider_arn" {
-  description = "ARN of the EKS OIDC provider for IRSA trust relationships. Empty string before EKS is created; populate in phase 2 apply."
+  description = "ARN of the EKS OIDC provider for IRSA trust relationships. Sourced from the eks module."
   type        = string
-  default     = ""
 }
 
 variable "oidc_provider_url" {
-  description = "URL of the EKS OIDC provider (without https:// prefix). Empty string before EKS is created."
+  description = "URL of the EKS OIDC provider (without https:// prefix). Sourced from the eks module."
   type        = string
-  default     = ""
 }
 
 variable "aws_region" {

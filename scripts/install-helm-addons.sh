@@ -48,11 +48,15 @@ tf_out() {
 # Resolve variables for envsubst. Exported so envsubst sees them.
 export CLUSTER_NAME AWS_REGION
 export VPC_ID="$(tf_out vpc_id)"
+export CLUSTER_ENDPOINT="$(tf_out cluster_endpoint)"
 export LOG_GROUP_NAME="$(tf_out eks_application_log_group)"
 export CLUSTER_AUTOSCALER_ROLE_ARN="$(tf_out cluster_autoscaler_role_arn)"
 export FLUENT_BIT_ROLE_ARN="$(tf_out fluent_bit_role_arn)"
 export AWS_LB_CONTROLLER_ROLE_ARN="$(tf_out aws_lb_controller_role_arn)"
 export EXTERNAL_SECRETS_ROLE_ARN="$(tf_out external_secrets_role_arn)"
+export KARPENTER_IAM_ROLE_ARN="$(tf_out karpenter_iam_role_arn)"
+export KARPENTER_QUEUE_NAME="$(tf_out karpenter_queue_name)"
+export KARPENTER_NODE_IAM_ROLE_NAME="$(tf_out karpenter_node_iam_role_name)"
 
 # Ensure kubeconfig points at the cluster.
 log "Updating kubeconfig for ${CLUSTER_NAME} in ${AWS_REGION}"
@@ -125,5 +129,25 @@ css_rendered="$(render_values "${HELM_DIR}/external-secrets/cluster-secret-store
 kubectl apply -f "${css_rendered}"
 rm -f "${css_rendered}"
 
+# 7. karpenter (OCI chart from public ECR; must be installed AFTER cluster-autoscaler
+#    so the default managed node group exists for the controller pods to land on).
+log "helm upgrade --install karpenter (oci://public.ecr.aws/karpenter/karpenter 1.6.0) -> kube-system"
+karpenter_rendered="$(render_values "${HELM_DIR}/karpenter/values.yaml")"
+helm upgrade --install karpenter oci://public.ecr.aws/karpenter/karpenter \
+  --version 1.6.0 \
+  --namespace kube-system \
+  --values "${karpenter_rendered}" \
+  --timeout "${HELM_TIMEOUT}" \
+  --wait
+rm -f "${karpenter_rendered}"
+
+# Apply EC2NodeClass + NodePool after the controller is healthy (CRDs are bundled in the chart).
+log "Applying Karpenter EC2NodeClass and NodePool"
+ec2nc_rendered="$(render_values "${HELM_DIR}/karpenter/ec2nodeclass.yaml")"
+np_rendered="$(render_values "${HELM_DIR}/karpenter/nodepool.yaml")"
+kubectl apply -f "${ec2nc_rendered}"
+kubectl apply -f "${np_rendered}"
+rm -f "${ec2nc_rendered}" "${np_rendered}"
+
 log "All cluster add-ons installed successfully."
-helm ls -A | grep -E '(NAME|nginx-ingress|cluster-autoscaler|aws-load-balancer-controller|aws-for-fluent-bit|external-secrets|metrics-server)' || true
+helm ls -A | grep -E '(NAME|nginx-ingress|cluster-autoscaler|aws-load-balancer-controller|aws-for-fluent-bit|external-secrets|metrics-server|karpenter)' || true

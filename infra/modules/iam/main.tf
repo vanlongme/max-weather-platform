@@ -1,35 +1,4 @@
 ###############################################################################
-# EKS cluster control-plane role
-###############################################################################
-
-data "aws_iam_policy_document" "eks_cluster_assume_role" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["eks.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "eks_cluster" {
-  name               = "${var.cluster_name}-eks-cluster"
-  assume_role_policy = data.aws_iam_policy_document.eks_cluster_assume_role.json
-  tags               = merge(var.tags, { Name = "${var.cluster_name}-eks-cluster" })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
-  role       = aws_iam_role.eks_cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_cluster_vpc_resource_controller" {
-  role       = aws_iam_role.eks_cluster.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
-}
-
-###############################################################################
 # Jenkins EC2 instance profile + role
 ###############################################################################
 
@@ -113,52 +82,13 @@ resource "aws_iam_instance_profile" "jenkins" {
 }
 
 ###############################################################################
-# EKS node group role
-###############################################################################
-
-data "aws_iam_policy_document" "eks_node_assume_role" {
-  statement {
-    effect  = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ec2.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "eks_node" {
-  name               = "${var.cluster_name}-eks-node"
-  assume_role_policy = data.aws_iam_policy_document.eks_node_assume_role.json
-  tags               = merge(var.tags, { Name = "${var.cluster_name}-eks-node" })
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_worker_node" {
-  role       = aws_iam_role.eks_node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_ecr_readonly" {
-  role       = aws_iam_role.eks_node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_cni" {
-  role       = aws_iam_role.eks_node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
-resource "aws_iam_role_policy_attachment" "eks_node_ssm" {
-  role       = aws_iam_role.eks_node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-###############################################################################
 # IRSA: Cluster Autoscaler
+#
+# cluster-autoscaler is installed as a Helm chart (k8s/helm/cluster-autoscaler/),
+# not via the EKS module's bundled addon, so its IRSA role is managed here.
 ###############################################################################
 
 data "aws_iam_policy_document" "cluster_autoscaler_assume_role" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -180,16 +110,14 @@ data "aws_iam_policy_document" "cluster_autoscaler_assume_role" {
 }
 
 resource "aws_iam_role" "cluster_autoscaler" {
-  count              = var.oidc_provider_arn != "" ? 1 : 0
   name               = "${var.cluster_name}-cluster-autoscaler"
-  assume_role_policy = data.aws_iam_policy_document.cluster_autoscaler_assume_role[0].json
+  assume_role_policy = data.aws_iam_policy_document.cluster_autoscaler_assume_role.json
   tags               = merge(var.tags, { Name = "${var.cluster_name}-cluster-autoscaler" })
 }
 
 resource "aws_iam_role_policy" "cluster_autoscaler" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
-  name  = "cluster-autoscaler-policy"
-  role  = aws_iam_role.cluster_autoscaler[0].id
+  name = "cluster-autoscaler-policy"
+  role = aws_iam_role.cluster_autoscaler.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -222,11 +150,10 @@ resource "aws_iam_role_policy" "cluster_autoscaler" {
 }
 
 ###############################################################################
-# IRSA: Fluent Bit
+# IRSA: Fluent Bit (CloudWatch Logs sink)
 ###############################################################################
 
 data "aws_iam_policy_document" "fluent_bit_assume_role" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -248,16 +175,14 @@ data "aws_iam_policy_document" "fluent_bit_assume_role" {
 }
 
 resource "aws_iam_role" "fluent_bit" {
-  count              = var.oidc_provider_arn != "" ? 1 : 0
   name               = "${var.cluster_name}-fluent-bit"
-  assume_role_policy = data.aws_iam_policy_document.fluent_bit_assume_role[0].json
+  assume_role_policy = data.aws_iam_policy_document.fluent_bit_assume_role.json
   tags               = merge(var.tags, { Name = "${var.cluster_name}-fluent-bit" })
 }
 
 resource "aws_iam_role_policy" "fluent_bit" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
-  name  = "fluent-bit-policy"
-  role  = aws_iam_role.fluent_bit[0].id
+  name = "fluent-bit-policy"
+  role = aws_iam_role.fluent_bit.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -282,7 +207,6 @@ resource "aws_iam_role_policy" "fluent_bit" {
 ###############################################################################
 
 data "aws_iam_policy_document" "aws_lb_controller_assume_role" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -304,16 +228,14 @@ data "aws_iam_policy_document" "aws_lb_controller_assume_role" {
 }
 
 resource "aws_iam_role" "aws_lb_controller" {
-  count              = var.oidc_provider_arn != "" ? 1 : 0
   name               = "${var.cluster_name}-aws-lb-controller"
-  assume_role_policy = data.aws_iam_policy_document.aws_lb_controller_assume_role[0].json
+  assume_role_policy = data.aws_iam_policy_document.aws_lb_controller_assume_role.json
   tags               = merge(var.tags, { Name = "${var.cluster_name}-aws-lb-controller" })
 }
 
 resource "aws_iam_role_policy" "aws_lb_controller" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
-  name  = "aws-lb-controller-policy"
-  role  = aws_iam_role.aws_lb_controller[0].id
+  name = "aws-lb-controller-policy"
+  role = aws_iam_role.aws_lb_controller.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -396,7 +318,6 @@ resource "aws_iam_role_policy" "aws_lb_controller" {
 ###############################################################################
 
 data "aws_iam_policy_document" "external_secrets_assume_role" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -418,16 +339,14 @@ data "aws_iam_policy_document" "external_secrets_assume_role" {
 }
 
 resource "aws_iam_role" "external_secrets" {
-  count              = var.oidc_provider_arn != "" ? 1 : 0
   name               = "${var.cluster_name}-external-secrets"
-  assume_role_policy = data.aws_iam_policy_document.external_secrets_assume_role[0].json
+  assume_role_policy = data.aws_iam_policy_document.external_secrets_assume_role.json
   tags               = merge(var.tags, { Name = "${var.cluster_name}-external-secrets" })
 }
 
 resource "aws_iam_role_policy" "external_secrets" {
-  count = var.oidc_provider_arn != "" ? 1 : 0
-  name  = "external-secrets-policy"
-  role  = aws_iam_role.external_secrets[0].id
+  name = "external-secrets-policy"
+  role = aws_iam_role.external_secrets.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
