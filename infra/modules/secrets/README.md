@@ -6,8 +6,8 @@ defaults that match the existing weather-api stack:
 
 | Key | Default Secret Name | Purpose |
 |-----|---------------------|---------|
-| `cognito_client_secret` | `/{name}/cognito/client-secret` | Holds the Cognito app client secret. Populated externally after Cognito apply (Terraform manages the secret container; the secret value is `ignore_changes`). |
-| `app_config` | `/{name}/app/config` | weather-api runtime configuration. Initial value is bootstrap-only; subsequent updates are managed externally. |
+| `authorizer_jwt_secret` | `${var.name}-authorizer-jwt-secret` | HS256 shared secret consumed by the Lambda authorizer. Populated externally post-apply (Terraform manages the container; secret value is `ignore_changes`). `recovery_window_in_days = 0` for immediate deletion on destroy. |
+| `app_config` | `${var.name}-app-config-secret` | weather-api runtime configuration. Initial value is bootstrap-only; subsequent updates are managed externally. |
 
 ## Resource naming
 
@@ -45,10 +45,9 @@ module "secrets" {
   tags   = { Environment = "poc" }
 
   secrets = {
-    cognito_client_secret = {
-      name          = "/__CLUSTER_NAME__/cognito/client-secret"
-      description   = "Cognito app client secret for weather-api OAuth2."
-      initial_value = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
+    authorizer_jwt_secret = {
+      description              = "HS256 shared secret for Lambda authorizer."
+      recovery_window_in_days  = 0
     }
     app_config = {
       name          = "/__CLUSTER_NAME__/app/config"
@@ -73,7 +72,7 @@ the entry's `name` is null, the module falls back to `${var.name}-${key}-secret`
 |------|-------------|------|---------|
 | `name` | Name prefix applied to every resource (typically the master_prefix from the composition, e.g. `poc-max-weather`). | `string` | n/a |
 | `tags` | Common tags. | `map(string)` | `{}` |
-| `secrets` | Map of Secrets Manager secrets, keyed by short name. Each value has optional `name` (may contain `__CLUSTER_NAME__`; falls back to `${var.name}-${key}-secret` when null), optional `description`, optional `initial_value`, and optional `recovery_window_in_days` (default 7). **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = optional(string), description = optional(string), initial_value = optional(string), recovery_window_in_days = optional(number, 7) }))</code> | `cognito_client_secret` + `app_config` |
+| `secrets` | Map of Secrets Manager secrets, keyed by short name. Each value has optional `name` (may contain `__CLUSTER_NAME__`; falls back to `${var.name}-${key}-secret` when null), optional `description`, optional `initial_value`, and optional `recovery_window_in_days` (default 7). **Supplying this variable REPLACES the defaults.** | <code>map(object({ name = optional(string), description = optional(string), initial_value = optional(string), recovery_window_in_days = optional(number, 7) }))</code> | `authorizer_jwt_secret` + `app_config` |
 | `cluster_name_placeholder` | Literal placeholder token in `secrets[*].name` substituted with `var.name` at apply time. | `string` | `"__CLUSTER_NAME__"` |
 
 ## Outputs
@@ -82,7 +81,7 @@ the entry's `name` is null, the module falls back to `${var.name}-${key}-secret`
 |------|-------------|
 | `secret_arns` | Map of key → secret ARN. |
 | `secret_names` | Map of key → secret name. |
-| `cognito_client_secret_arn` | Back-compat alias for `secret_arns["cognito_client_secret"]`. |
-| `cognito_client_secret_name` | Back-compat alias for `secret_names["cognito_client_secret"]`. |
-| `app_config_secret_arn` | Back-compat alias for `secret_arns["app_config"]`. |
-| `app_config_secret_name` | Back-compat alias for `secret_names["app_config"]`. |
+| `authorizer_jwt_secret_arn` | Convenience alias for `secret_arns["authorizer_jwt_secret"]`. |
+| `authorizer_jwt_secret_name` | Convenience alias for `secret_names["authorizer_jwt_secret"]`. |
+| `app_config_secret_arn` | Convenience alias for `secret_arns["app_config"]`. |
+| `app_config_secret_name` | Convenience alias for `secret_names["app_config"]`. |
