@@ -62,6 +62,14 @@ pipeline {
       }
     }
 
+    stage('Install Cluster Addons') {
+      steps {
+        sh '''
+          CLUSTER_NAME=$CLUSTER AWS_REGION=$AWS_REGION bash scripts/install-helm-addons.sh
+        '''
+      }
+    }
+
     stage('Deploy to Staging') {
       steps {
         sh '''
