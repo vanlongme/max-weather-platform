@@ -33,24 +33,29 @@ output "ecr_api_repository_url" {
   value       = module.ecr.repository_urls["${local.master_prefix}-api"]
 }
 
-output "ecr_lambda_repository_url" {
-  description = "ECR URL for the Lambda authorizer image."
-  value       = module.ecr.repository_urls["${local.master_prefix}-lambda-authorizer"]
+output "lambda_authorizer_function_name" {
+  description = "Lambda authorizer function name (for API Gateway authorizer wiring)."
+  value       = try(module.lambda.function_names["authorizer"], "")
 }
 
-output "cognito_client_id" {
-  description = "Cognito app client ID."
-  value       = module.cognito.client_id
+output "lambda_authorizer_function_arn" {
+  description = "Lambda authorizer function ARN."
+  value       = try(module.lambda.function_arns["authorizer"], "")
 }
 
-output "cognito_token_endpoint" {
-  description = "Cognito OAuth2 token endpoint."
-  value       = module.cognito.token_endpoint
+output "lambda_authorizer_invoke_arn" {
+  description = "Lambda authorizer invoke ARN (for API Gateway HTTP API integration)."
+  value       = try(module.lambda.function_invoke_arns["authorizer"], "")
 }
 
-output "cognito_jwks_uri" {
-  description = "Cognito JWKS URI for JWT validation."
-  value       = module.cognito.jwks_uri
+output "authorizer_jwt_secret_arn" {
+  description = "ARN of the HS256 JWT signing secret in Secrets Manager."
+  value       = module.secrets.authorizer_jwt_secret_arn
+}
+
+output "authorizer_jwt_secret_name" {
+  description = "Name of the HS256 JWT signing secret in Secrets Manager."
+  value       = module.secrets.authorizer_jwt_secret_name
 }
 
 output "eks_application_log_group" {

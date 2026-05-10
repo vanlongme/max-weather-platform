@@ -45,11 +45,6 @@ variable "allowed_cidrs" {
   type        = list(string)
 }
 
-variable "cognito_domain_prefix" {
-  description = "Globally unique prefix for the Cognito hosted UI domain (e.g. max-weather-abc123)."
-  type        = string
-}
-
 ###############################################################################
 # Module map passthroughs — null means use the module's built-in defaults.
 ###############################################################################
@@ -162,14 +157,13 @@ variable "ecr_repositories" {
     tag_prefix_list            = optional(list(string), ["staging-", "prod-"])
   }))
   default = {
-    "__CLUSTER_NAME__-api"               = {}
-    "__CLUSTER_NAME__-lambda-authorizer" = {}
-    "__CLUSTER_NAME__-base-nodejs"       = {}
+    "__CLUSTER_NAME__-api"         = {}
+    "__CLUSTER_NAME__-base-nodejs" = {}
   }
 }
 
 variable "secrets" {
-  description = "Map of Secrets Manager secrets to create. Each name may contain the literal __CLUSTER_NAME__ placeholder. Defaults match the prior hardcoded set: cognito_client_secret, app_config."
+  description = "Map of Secrets Manager secrets to create. Each name may contain the literal __CLUSTER_NAME__ placeholder. Defaults: authorizer_jwt_secret (HS256 signing key) and app_config."
   type = map(object({
     name                    = string
     description             = optional(string)
@@ -177,10 +171,11 @@ variable "secrets" {
     recovery_window_in_days = optional(number, 7)
   }))
   default = {
-    cognito_client_secret = {
-      name          = "/__CLUSTER_NAME__/cognito/client-secret"
-      description   = "Cognito app client secret for weather-api OAuth2."
-      initial_value = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
+    authorizer_jwt_secret = {
+      name                    = "__CLUSTER_NAME__-authorizer-jwt-secret"
+      description             = "HS256 shared secret for the Lambda authorizer (operator-populated post-apply)."
+      initial_value           = "CHANGE-ME-32-BYTE-SECRET-AT-LEAST"
+      recovery_window_in_days = 0
     }
     app_config = {
       name          = "/__CLUSTER_NAME__/app/config"
@@ -190,19 +185,20 @@ variable "secrets" {
   }
 }
 
-variable "cognito_app_clients" {
-  description = "Map of Cognito app clients to create via the cognito module. Defaults ship the single weather_api client (client_credentials M2M flow with read scope)."
+variable "lambda_functions" {
+  description = "Map of Lambda functions to deploy via the lambda module. Supplying this map REPLACES the default entirely (no merge). Default ships the authorizer function wired to the iam module's lambda_authorizer_role_arn and the secrets module's authorizer_jwt_secret_arn."
   type = map(object({
-    name_suffix                          = optional(string)
-    generate_secret                      = optional(bool, true)
-    allowed_oauth_flows_user_pool_client = optional(bool, true)
-    allowed_oauth_flows                  = optional(list(string), ["client_credentials"])
-    allowed_oauth_scopes                 = optional(list(string))
-    supported_identity_providers         = optional(list(string), ["COGNITO"])
+    source_dir           = string
+    handler              = string
+    runtime              = optional(string, "nodejs22.x")
+    memory_size          = optional(number, 128)
+    timeout              = optional(number, 5)
+    environment          = optional(map(string), {})
+    log_retention_days   = optional(number, 14)
+    function_name_suffix = optional(string, "")
+    role_arn             = string
+    invoke_principals    = optional(map(string), {})
+    npm_install_dir      = optional(string, null)
   }))
-  default = {
-    weather_api = {
-      name_suffix = "weather-api"
-    }
-  }
+  default = {}
 }

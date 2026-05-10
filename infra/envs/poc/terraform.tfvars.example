@@ -6,10 +6,9 @@
 # (e.g. infra/envs/poc -> "poc"). With the defaults below, master_prefix
 # evaluates to "poc-max-weather".
 ###############################################################################
-aws_region            = "us-east-1"
-project               = "max-weather"
-allowed_cidrs         = ["YOUR_PUBLIC_IP/32"]
-cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
+aws_region    = "us-east-1"
+project       = "max-weather"
+allowed_cidrs = ["YOUR_PUBLIC_IP/32"]
 
 # ###############################################################################
 # # Optional overrides — uncomment to customize. Defaults preserve the original
@@ -112,33 +111,26 @@ cognito_domain_prefix = "max-weather-UNIQUE-SUFFIX"
 # # is derived as `${master_prefix}-${key}-repo` (e.g. "poc-max-weather-api-repo").
 # ###############################################################################
 # # ecr_repositories = {
-# #   api               = {}
-# #   lambda-authorizer = { keep_tagged_image_count = 5 }
-# #   base-nodejs       = {}
+# #   api         = {}
+# #   base-nodejs = {}
 # # }
+# # Note: lambda-authorizer ECR repo removed — Lambda deploys ZIP via Terraform archive_file
 
 # ###############################################################################
 # # Secrets Manager — `__CLUSTER_NAME__` is substituted with local.master_prefix
 # ###############################################################################
 # # secrets = {
-# #   cognito_client_secret = {
-# #     name          = "/__CLUSTER_NAME__/cognito/client-secret"
-# #     description   = "Cognito app client secret for weather-api OAuth2."
-# #     initial_value = "PLACEHOLDER_REPLACE_AFTER_COGNITO_APPLY"
+# #   authorizer_jwt_secret = {
+# #     name                    = "__CLUSTER_NAME__-authorizer-jwt-secret"
+# #     description             = "HS256 shared secret for the Lambda authorizer (operator-populated post-apply)."
+# #     initial_value           = "CHANGE-ME-32-BYTE-SECRET-AT-LEAST"
+# #     recovery_window_in_days = 0
 # #   }
 # #   app_config = {
 # #     name          = "/__CLUSTER_NAME__/app/config"
 # #     description   = "weather-api application runtime configuration."
 # #     initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\",\"PORT\":\"3000\"}"
 # #   }
-# # }
-
-# ###############################################################################
-# # Cognito app clients
-# ###############################################################################
-# # cognito_app_clients = {
-# #   weather_api = { name_suffix = "weather-api" }
-# #   analytics   = { name_suffix = "analytics", allowed_oauth_scopes = ["weather-api/read"] }
 # # }
 
 # ###############################################################################

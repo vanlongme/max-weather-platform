@@ -26,13 +26,11 @@ module "ecr" {
   tags         = local.common_tags
 }
 
-module "cognito" {
-  source = "../../modules/cognito"
-
-  name          = local.master_prefix
-  domain_prefix = var.cognito_domain_prefix
-  app_clients   = var.cognito_app_clients
-  tags          = local.common_tags
+removed {
+  from = module.cognito
+  lifecycle {
+    destroy = false
+  }
 }
 
 module "secrets" {
@@ -41,6 +39,15 @@ module "secrets" {
   name    = local.master_prefix
   secrets = var.secrets
   tags    = local.common_tags
+}
+
+module "lambda" {
+  source = "../../modules/lambda"
+
+  name = local.master_prefix
+  tags = local.common_tags
+
+  functions = var.lambda_functions
 }
 
 module "iam" {
