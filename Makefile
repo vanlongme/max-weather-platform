@@ -39,8 +39,7 @@ app-build: ## Build weather-api Docker image locally
 
 app-build-push: ecr-login ## Build and push weather-api image to ECR
 	docker buildx build --platform linux/amd64 \
-		-t $(APP_REPO):staging-$(GIT_SHA) \
-		-t $(APP_REPO):latest \
+		-t $(APP_REPO):$(GIT_SHA) \
 		--push app/
 
 app-run-local: ## Run weather-api locally
@@ -67,11 +66,13 @@ authorizer-deploy: authorizer-package ## Deploy Lambda authorizer ZIP to AWS
 install-addons: ## Install/upgrade all cluster Helm add-ons (idempotent)
 	CLUSTER_NAME=$(CLUSTER) AWS_REGION=$(REGION) bash scripts/install-helm-addons.sh
 
+# MANUAL OVERRIDE — production deploys go through Jenkins max-weather-deploy job
 deploy-staging: install-addons ## Install add-ons then deploy to staging via kubectl kustomize
 	aws eks update-kubeconfig --name $(CLUSTER) --region $(REGION)
 	kubectl apply -k k8s/overlays/staging
 	kubectl rollout status deployment/weather-api -n $(NAMESPACE) --timeout=180s
 
+# MANUAL OVERRIDE — production deploys go through Jenkins max-weather-deploy job
 deploy-prod: ## Deploy to prod via kubectl kustomize
 	aws eks update-kubeconfig --name $(CLUSTER) --region $(REGION)
 	kubectl apply -k k8s/overlays/prod
