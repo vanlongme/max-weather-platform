@@ -9,7 +9,7 @@ Max Weather is a containerized Node.js weather API on AWS EKS, fronted by an API
 1. **Client** issues an HS256 JWT via `bash scripts/issue-token.sh --env staging` (or `--env prod`). The script reads the per-env shared secret from Secrets Manager and signs locally — no network round-trip to mint.
 2. **Client → API GW HTTP API** — `Authorization: Bearer <token>` header on `GET /weather`. Each env has its own API GW stage (`staging`, `prod`) with its own invoke URL.
 3. **API GW → Lambda Authorizer** — verifies HS256 signature + `scope: weather-api/read`; returns `{isAuthorized: true|false}`. `/healthz` is configured with `AuthorizationType=NONE` (unauthenticated for ALB / smoke checks).
-4. **API GW → VPC Link → NLB (internal)** — HTTP proxy integration over a private VPC link.
+4. **API GW → NLB** — HTTP proxy integration to the internal Network Load Balancer.
 5. **NLB → ingress-nginx → weather-api** — L7 routing by Host header (`staging.max-weather.local` / `prod.max-weather.local`) inside the EKS cluster, terminating at the namespace-scoped Service.
 6. **weather-api → Open-Meteo** — outbound HTTPS to the upstream weather API; JSON response returned to the client.
 
@@ -20,7 +20,7 @@ Max Weather is a containerized Node.js weather API on AWS EKS, fronted by an API
 | EKS Cluster | AWS managed K8s | `infra/modules/eks/` | Container orchestration |
 | API Gateway HTTP API | AWS managed | `infra/modules/api_gateway/` | Public entry point + auth gateway (per-env stage) |
 | Lambda Authorizer | AWS Lambda (Node.js 22) | `infra/envs/poc/lambdas/authorizer/` | HS256 JWT verification (per-env deployment) |
-| NLB (internal) | AWS NLB | Created by ingress-nginx Service | Routes API GW → EKS |
+| NLB | AWS NLB | Created by ingress-nginx Service | Routes API GW → EKS |
 | ingress-nginx | Helm release | `eks-self-managed-addons/values/ingress-nginx.yaml` | L7 routing inside EKS |
 | KEDA ScaledObject | CRD (keda.sh/v1alpha1) | `k8s/base/scaledobject.yaml` | CPU-based pod autoscaling (Utilization=60) |
 | Karpenter | Helm release + CRDs | `eks-self-managed-addons/values/karpenter.yaml` | Workload node provisioning |
@@ -101,22 +101,3 @@ Steady-state monthly (us-east-1, on-demand, idle load — 0 Karpenter-provisione
 | **Total (idle)** | **~139** |
 
 Under sustained load, Karpenter adds workload nodes (~$30/mo per `t3.medium`) on demand and reaps them after the scale-down window. 2-day demo cost ≈ $12. Run `make teardown` immediately after evaluation — single-shot cloud-nuke wipe brings the account back to $0.
-
-## 9. Security Posture
-
-- **No secrets in Git.** Per-env JWT shared secret + app config in Secrets Manager, synced to K8s via External Secrets Operator. Postman env templates ship with the secret fields empty.
-- **EKS Pod Identity (no IRSA).** All workloads (jenkins, jenkins-agent, weather-api, cluster-autoscaler, fluent-bit, external-secrets, karpenter, ebs-csi-controller, efs-csi-controller) use Pod Identity associations — no node-level credentials shared.
-- **Least-privilege IAM.** Each Terraform module owns its IAM role scoped to its resources. Jenkins agent has EKS access entry granting Edit on `weather-{staging,prod}` only.
-- **Container hardening.** `runAsNonRoot`, `readOnlyRootFilesystem`, `drop: [ALL]`, `allowPrivilegeEscalation: false`. Trivy scan in CI fails on HIGH/CRITICAL.
-- **NetworkPolicies.** `weather-{staging,prod}` namespaces apply `deny-all-ingress` + `allow-from-ingress-nginx`. Egress open (Open-Meteo, AWS APIs).
-- **Topology spread.** Pods spread across AZs (`maxSkew: 1`, `ScheduleAnyway`) — single-AZ event preserves quorum during KEDA scale-up.
-- **Public-subnet topology (POC trade-off).** Worker nodes have public IPs; no NAT Gateway. Inbound contained by SGs + API GW + Lambda authorizer. EKS API endpoint public-access CIDRs validated to reject `0.0.0.0/0`. **For production**: private subnets + NAT or VPC endpoints.
-
-## 10. Out of Scope
-
-- Multi-region deployment (single `us-east-1`)
-- WAF / DDoS protection (Shield Advanced)
-- Custom DNS / TLS via Route53 + ACM (uses `*.max-weather.local` Host header today)
-- GitOps continuous deployment (ArgoCD / Flux)
-- Service mesh (Istio / Linkerd)
-- Asymmetric JWT (RS256/ES256 via JWKS) — current HS256 is shared-secret only
