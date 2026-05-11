@@ -18,7 +18,7 @@
 // The removedJobAction('DELETE') below is the Job DSL script-level override:
 removedJobAction('DELETE')
 
-def scmUrl = binding.variables.get('SCM_URL') ?: 'https://github.com/your-org/max-weather.git'
+def scmUrl = binding.variables.get('SCM_URL') ?: 'https://github.com/vanlongme/max-weather-platform.git'
 
 // ------------------------------------------------------------------
 // Job 1: max-weather-ci  (Upstream CI pipeline)

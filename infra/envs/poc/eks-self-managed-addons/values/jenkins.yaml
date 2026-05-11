@@ -90,7 +90,7 @@ controller:
                 scm {
                   git {
                     remote {
-                      url(System.getenv('SCM_URL') ?: 'https://github.com/your-org/max-weather.git')
+                      url(System.getenv('SCM_URL') ?: 'https://github.com/vanlongme/max-weather-platform.git')
                     }
                     branch('main')
                   }
