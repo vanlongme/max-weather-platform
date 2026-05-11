@@ -38,7 +38,7 @@ with open(out, "w") as f:
 EOF
 
 echo "Running Newman against ${INVOKE_URL:-<unset>}..."
-newman run docs/postman/max-weather.postman_collection.json \
+npx --yes newman run docs/postman/max-weather.postman_collection.json \
   -e "$TMP_ENV" \
   --reporters cli,htmlextra \
   --reporter-htmlextra-export docs/evidence/05-app/postman-report.html \
