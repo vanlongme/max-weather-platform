@@ -1,0 +1,176 @@
+<mxfile host="app.diagrams.net" agent="sisyphus">
+  <diagram id="max-weather-arch" name="Max Weather AWS Architecture">
+    <mxGraphModel dx="2558" dy="1383" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="client" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=1;fontSize=13;" value="Client" vertex="1">
+          <mxGeometry height="60" width="120" x="40" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="aws" parent="1" style="swimlane;startSize=30;fillColor=#e8f4f8;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;" value="AWS Account" vertex="1">
+          <mxGeometry height="900" width="1900" x="200" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="apigw_group" parent="aws" style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;" value="API Gateway HTTP API" vertex="1">
+          <mxGeometry height="220" width="300" x="20" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="apigw" parent="apigw_group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcd28;strokeColor=#d6b656;fontStyle=1;fontSize=12;" value="API GW HTTP API" vertex="1">
+          <mxGeometry height="50" width="160" x="20" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="authorizer" parent="apigw_group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Lambda Authorizer&#xa;(HS256)" vertex="1">
+          <mxGeometry height="50" width="160" x="100" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="healthz_note" parent="apigw_group" style="text;html=1;align=left;fontSize=10;fontColor=#666666;" value="/healthz: NONE auth" vertex="1">
+          <mxGeometry height="30" width="140" x="20" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="apigw_group" source="apigw" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="authorizer" value="authorize">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="secrets" parent="aws" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;" value="Secrets Manager" vertex="1">
+          <mxGeometry height="50" width="150" x="1580" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc" parent="aws" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;" value="VPC" vertex="1">
+          <mxGeometry height="800" width="1500" x="360" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="vpc_link" parent="vpc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" value="VPC Link" vertex="1">
+          <mxGeometry height="50" width="120" x="20" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="nlb" parent="vpc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" value="NLB (internal)" vertex="1">
+          <mxGeometry height="50" width="140" x="200" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="eks" parent="vpc" style="swimlane;startSize=30;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;fontSize=13;" value="EKS Cluster" vertex="1">
+          <mxGeometry height="720" width="1060" x="400" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-6" parent="eks" style="text;html=1;whiteSpace=wrap;strokeColor=default;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Infras tools" vertex="1">
+          <mxGeometry height="30" width="80" x="610" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="nginx" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;fontSize=12;" value="ingress-nginx" vertex="1">
+          <mxGeometry height="50" width="140" x="20" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="weather_api" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;" value="weather-api" vertex="1">
+          <mxGeometry height="60" width="140" x="220" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="keda" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" value="KEDA ScaledObject&#xa;(cpu, Util=60)" vertex="1">
+          <mxGeometry height="60" width="160" x="220" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="metrics_server" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;" value="metrics-server" vertex="1">
+          <mxGeometry height="50" width="140" x="220" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="karpenter" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;fontSize=12;" value="Karpenter" vertex="1">
+          <mxGeometry height="50" width="140" x="680" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="cas" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;" value="Cluster Autoscaler" vertex="1">
+          <mxGeometry height="50" width="160" x="840" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="fluent" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=12;" value="Fluent Bit (daemonset)" vertex="1">
+          <mxGeometry height="50" width="140" x="850" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ec2_nodes" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="EC2 NodePool&#xa;(t3.medium/large)" vertex="1">
+          <mxGeometry height="60" width="160" x="670" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="mng" parent="eks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="Managed Node Group&#xa;(t3.medium, general)" vertex="1">
+          <mxGeometry height="60" width="180" x="840" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="eks" source="nginx" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="weather_api" value="routes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="eks" source="metrics_server" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="keda" value="cpu metrics">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="eks" source="keda" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="weather_api" value="scales">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="eks" source="karpenter" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="ec2_nodes" value="provisions">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="eks" source="cas" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="mng" value="scales">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="920" y="320" />
+              <mxPoint x="920" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-1" parent="eks" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;locked=1;connectable=0;" value="" vertex="1">
+          <mxGeometry height="480" width="450" x="610" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-2" parent="eks" style="rounded=0;whiteSpace=wrap;html=1;" value="Jenkins" vertex="1">
+          <mxGeometry height="60" width="120" x="690" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-3" parent="eks" style="rounded=0;whiteSpace=wrap;html=1;" value="External Secret" vertex="1">
+          <mxGeometry height="60" width="120" x="880" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="vpc" source="vpc_link" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="nlb" value="routes to">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="vpc" source="nlb" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="nginx" value="targets">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ecr" parent="aws" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;" value="ECR" vertex="1">
+          <mxGeometry height="50" width="120" x="1430" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="aws" source="authorizer" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="secrets" value="fetch secret">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="aws" source="apigw" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="vpc_link" value="HTTP proxy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudwatch" parent="aws" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;" value="CloudWatch" vertex="1">
+          <mxGeometry height="50" width="140" x="1760" y="850" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="aws" source="fluent" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="cloudwatch" value="logs">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1840" y="245" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-4" edge="1" parent="aws" source="l8L81h26dyYiYlLvlEAF-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="secrets">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-5" connectable="0" parent="l8L81h26dyYiYlLvlEAF-4" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="fetch secret" vertex="1">
+          <mxGeometry relative="1" x="-0.5458" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-8" edge="1" parent="aws" source="l8L81h26dyYiYlLvlEAF-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="ecr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="l8L81h26dyYiYlLvlEAF-9" connectable="0" parent="l8L81h26dyYiYlLvlEAF-8" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="build and push image" vertex="1">
+          <mxGeometry relative="1" x="-0.3758" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="open_meteo" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=12;" value="Open-Meteo&#xa;(external)" vertex="1">
+          <mxGeometry height="60" width="140" x="1180" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="client" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="apigw" value="JWT Bearer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="weather_api" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;" target="ecr" value="pull image">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1430" y="330" />
+              <mxPoint x="1430" y="955" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="weather_api" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="open_meteo" value="API call">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1215" y="390" />
+              <mxPoint x="1150" y="390" />
+              <mxPoint x="1150" y="760" />
+              <mxPoint x="1250" y="760" />
+            </Array>
+            <mxPoint x="1190" y="410" as="sourcePoint" />
+            <mxPoint x="780.0000000000005" y="1160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

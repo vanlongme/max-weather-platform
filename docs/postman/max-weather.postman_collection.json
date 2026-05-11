@@ -1,0 +1,280 @@
+{
+  "info": {
+    "_postman_id": "max-weather-api-collection",
+    "name": "Max Weather API",
+    "description": "Max Weather API — end-to-end tests including HS256 JWT authorization via a shared secret in AWS Secrets Manager.\n\nThe pre-request script mirrors `scripts/issue-token.sh` (HS256, claims: iss/sub/scope/iat/exp) so tokens minted in Postman are byte-compatible with `bash scripts/issue-token.sh --env <staging|prod>`. Populate `jwt_secret` from Secrets Manager (`poc-max-weather-authorizer-jwt-secret[-prod]`); the secret string is the raw HMAC key.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// HS256 JWT generation using CryptoJS (built-in to Postman sandbox).",
+          "// Mirrors scripts/issue-token.sh — claims: iss, sub, scope, iat, exp.",
+          "// Per-env defaults match the shell script:",
+          "//   staging -> iss=max-weather-staging",
+          "//   prod    -> iss=max-weather-prod",
+          "// Override per-environment via the 'jwt_issuer' env variable.",
+          "// Skips re-generation if existing token is still valid (5-minute buffer).",
+          "const expiry = pm.collectionVariables.get('token_expiry');",
+          "const now = Math.floor(Date.now() / 1000);",
+          "if (expiry && now < parseInt(expiry) - 300) return;",
+          "",
+          "const secret = pm.environment.get('jwt_secret') || pm.collectionVariables.get('jwt_secret');",
+          "const issuer = pm.environment.get('jwt_issuer')",
+          "            || pm.collectionVariables.get('jwt_issuer')",
+          "            || 'max-weather-staging';",
+          "const scope  = pm.environment.get('jwt_scope')",
+          "            || pm.collectionVariables.get('jwt_scope')",
+          "            || 'weather-api/read';",
+          "const sub    = pm.environment.get('jwt_sub')",
+          "            || pm.collectionVariables.get('jwt_sub')",
+          "            || 'max-weather-operator';",
+          "const ttl    = parseInt(pm.environment.get('jwt_expiry')",
+          "            || pm.collectionVariables.get('jwt_expiry')",
+          "            || '3600', 10);",
+          "",
+          "if (!secret) {",
+          "  console.warn('jwt_secret not set — requests will fail with 401. ' +",
+          "    'Run: aws secretsmanager get-secret-value --secret-id <secret> --query SecretString --output text');",
+          "  return;",
+          "}",
+          "",
+          "// Build JWT: header.payload.signature",
+          "function base64url(str) {",
+          "  return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(str))",
+          "    .replace(/=/g, '').replace(/\\+/g, '-').replace(/\\//g, '_');",
+          "}",
+          "",
+          "function base64urlBytes(wordArray) {",
+          "  return CryptoJS.enc.Base64.stringify(wordArray)",
+          "    .replace(/=/g, '').replace(/\\+/g, '-').replace(/\\//g, '_');",
+          "}",
+          "",
+          "const iat = now;",
+          "const exp = now + ttl;",
+          "",
+          "const header  = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));",
+          "const payload = base64url(JSON.stringify({ iss: issuer, sub: sub, scope: scope, iat: iat, exp: exp }));",
+          "const sigInput = header + '.' + payload;",
+          "const sig = base64urlBytes(CryptoJS.HmacSHA256(sigInput, secret));",
+          "",
+          "const token = sigInput + '.' + sig;",
+          "pm.environment.set('access_token', token);",
+          "pm.collectionVariables.set('access_token', token);",
+          "pm.environment.set('token_expiry', String(exp));",
+          "pm.collectionVariables.set('token_expiry', String(exp));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Weather",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/healthz",
+              "host": ["{{invoke_url}}"],
+              "path": ["healthz"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Body has status ok', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Weather Ho Chi Minh City",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/weather?latitude=10.78&longitude=106.70",
+              "host": ["{{invoke_url}}"],
+              "path": ["weather"],
+              "query": [
+                { "key": "latitude", "value": "10.78" },
+                { "key": "longitude", "value": "106.70" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has current_weather', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('current_weather');",
+                  "  pm.expect(body.current_weather.temperature).to.be.a('number');",
+                  "});",
+                  "pm.test('Has _meta source', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body._meta.source).to.eql('open-meteo');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Weather Hanoi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/weather?latitude=21.03&longitude=105.85",
+              "host": ["{{invoke_url}}"],
+              "path": ["weather"],
+              "query": [
+                { "key": "latitude", "value": "21.03" },
+                { "key": "longitude", "value": "105.85" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has current_weather', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('current_weather');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Weather Missing Params (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/weather",
+              "host": ["{{invoke_url}}"],
+              "path": ["weather"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has error message', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('error');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth Negative",
+      "item": [
+        {
+          "name": "No Token (401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/weather?latitude=10.78&longitude=106.70",
+              "host": ["{{invoke_url}}"],
+              "path": ["weather"],
+              "query": [
+                { "key": "latitude", "value": "10.78" },
+                { "key": "longitude", "value": "106.70" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 without token', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid Token (401)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "invalid.token.here", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{invoke_url}}/weather?latitude=10.78&longitude=106.70",
+              "host": ["{{invoke_url}}"],
+              "path": ["weather"],
+              "query": [
+                { "key": "latitude", "value": "10.78" },
+                { "key": "longitude", "value": "106.70" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 or 403 with invalid token', () => pm.expect(pm.response.code).to.be.oneOf([401, 403]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "invoke_url",    "value": "https://PLACEHOLDER.execute-api.us-east-1.amazonaws.com/staging", "type": "string" },
+    { "key": "jwt_secret",   "value": "PLACEHOLDER", "type": "secret" },
+    { "key": "jwt_issuer",   "value": "max-weather-staging", "type": "string" },
+    { "key": "jwt_scope",    "value": "weather-api/read", "type": "string" },
+    { "key": "jwt_sub",      "value": "max-weather-operator", "type": "string" },
+    { "key": "jwt_expiry",   "value": "3600", "type": "string" },
+    { "key": "access_token", "value": "", "type": "secret" },
+    { "key": "token_expiry", "value": "0", "type": "string" }
+  ]
+}

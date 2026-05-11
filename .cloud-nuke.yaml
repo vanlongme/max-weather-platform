@@ -1,0 +1,251 @@
+---
+# cloud-nuke configuration for max-weather infrastructure cleanup.
+# Destroys all resources created by this project, including bootstrap
+# (Terraform state S3 bucket + DynamoDB lock table).
+#
+# Resource naming conventions covered:
+#   - Bootstrap:  <project>-tfstate-<account-id>, <project>-tflock
+#                 where <project> defaults to "max-weather"
+#   - Workload:   <env>-<project>-* (master_prefix), e.g. "poc-max-weather-*"
+#   - ECR repos:  *weather-api*, *max-weather*
+#   - Secrets:    poc-max-weather-authorizer-jwt-secret,
+#                 poc-max-weather-authorizer-jwt-secret-prod,
+#                 /poc-max-weather/app/config
+#   - Log groups: /aws/eks/poc-max-weather/*, /aws/apigateway/poc-max-weather-api,
+#                 /aws/ec2/poc-max-weather-jenkins, /aws/lambda/poc-max-weather-*
+#   - EKS-module derived (terraform-aws-modules/eks): KMS keys/aliases,
+#     SQS karpenter queue, Karpenter IAM roles/instance profiles, OIDC provider.
+#
+# Reference: https://github.com/gruntwork-io/cloud-nuke#configuration
+
+# ─── Compute ────────────────────────────────────────────────────────────────
+
+ec2:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ec2_dedicated_hosts:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+security_groups:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ebs:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ec2_keypairs:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Networking ─────────────────────────────────────────────────────────────
+
+vpc:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+nat_gateway:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+eip:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+elastic_ip:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+elb:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+elbv2:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Container / Serverless ─────────────────────────────────────────────────
+
+eks:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ecr:
+  include:
+    names_regex:
+      - ".*weather-api.*"
+      - ".*max-weather.*"
+
+lambda_function:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+lambda_layer:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── API Gateway ────────────────────────────────────────────────────────────
+
+apigateway:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+apigatewayv2:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Identity / Access ──────────────────────────────────────────────────────
+
+iam_roles:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+  exclude:
+    names_regex:
+      - "^OrganizationAccountAccessRole$"
+      - "^AWSServiceRole.*"
+
+iam_policies:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+iam_groups:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+iam_users:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+iam_service_linked_roles:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+oidc_provider:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+cognito_userpool:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+cognito_identity:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Secrets / Crypto ───────────────────────────────────────────────────────
+
+secretsmanager:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+secrets_manager_secrets:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+ssm_parameter:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+kms_customer_keys:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Messaging ──────────────────────────────────────────────────────────────
+
+sqs:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+sns:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Storage (bootstrap state lives here) ───────────────────────────────────
+
+s3:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+      - ".*-tfstate-[0-9]+$"
+
+dynamodb:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+      - ".*-tflock$"
+
+efs:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Observability ──────────────────────────────────────────────────────────
+
+cloudwatch_loggroup:
+  include:
+    names_regex:
+      - ".*/max-weather/.*"
+      - ".*max-weather.*"
+      - "^/aws/eks/.*max-weather.*"
+      - "^/aws/lambda/.*max-weather.*"
+      - "^/aws/apigateway/.*max-weather.*"
+      - "^/aws/ec2/.*max-weather.*"
+
+cloudwatch_alarm:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+cloudwatch_dashboard:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+# ─── Auto Scaling / Karpenter (EKS module derived) ──────────────────────────
+
+asg:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+launch_template:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+launch_configuration:
+  include:
+    names_regex:
+      - ".*max-weather.*"

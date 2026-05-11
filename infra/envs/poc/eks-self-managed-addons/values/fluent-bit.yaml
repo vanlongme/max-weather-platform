@@ -1,0 +1,83 @@
+kind: DaemonSet
+
+serviceAccount:
+  create: true
+  name: fluent-bit
+
+rbac:
+  create: true
+  nodeAccess: false
+
+tolerations:
+  - operator: Exists
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+  limits:
+    memory: 200Mi
+
+logLevel: info
+flush: 5
+
+config:
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush {{ .Values.flush }}
+        Log_Level {{ .Values.logLevel }}
+        Parsers_File /fluent-bit/etc/parsers.conf
+        Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port {{ .Values.metricsPort }}
+        Health_Check On
+
+  inputs: |
+    [INPUT]
+        Name                tail
+        Tag                 application.weather-staging.*
+        Path                /var/log/containers/*_weather-staging_*.log
+        multiline.parser    docker, cri
+        DB                  /var/log/flb_app_staging.db
+        Mem_Buf_Limit       50MB
+        Skip_Long_Lines     On
+        Refresh_Interval    10
+        Rotate_Wait         30
+        Read_from_Head      Off
+
+    [INPUT]
+        Name                tail
+        Tag                 application.weather-prod.*
+        Path                /var/log/containers/*_weather-prod_*.log
+        multiline.parser    docker, cri
+        DB                  /var/log/flb_app_prod.db
+        Mem_Buf_Limit       50MB
+        Skip_Long_Lines     On
+        Refresh_Interval    10
+        Rotate_Wait         30
+        Read_from_Head      Off
+
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               application.*
+        Kube_URL            https://kubernetes.default.svc.cluster.local:443
+        Merge_Log           On
+        Merge_Log_Key       log_processed
+        Keep_Log            On
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude Off
+        Buffer_Size         0
+
+  outputs: |
+    [OUTPUT]
+        Name                cloudwatch_logs
+        Match               application.*
+        region              ${AWS_REGION}
+        log_group_name      ${LOG_GROUP_NAME}
+        log_stream_prefix   app-
+        auto_create_group   false
+
+  customParsers: ""

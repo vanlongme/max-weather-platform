@@ -1,0 +1,44 @@
+# Example tfvars for the EKS module.
+# Most consumers should call this module from an env composition (see infra/envs/poc/).
+# These values mirror the env defaults so the module can also be invoked standalone.
+
+cluster_name    = "max-weather"
+cluster_version = "1.34"
+
+vpc_id     = "vpc-REPLACE"
+subnet_ids = ["subnet-REPLACE-AZ1", "subnet-REPLACE-AZ2", "subnet-REPLACE-AZ3"]
+
+allowed_cidrs          = ["YOUR_PUBLIC_IP/32"]
+operator_principal_arn = "arn:aws:iam::REPLACE_ACCOUNT_ID:user/REPLACE_OPERATOR"
+jenkins_role_arn       = "arn:aws:iam::REPLACE_ACCOUNT_ID:role/max-weather-jenkins" # optional; "" omits the jenkins access entry (phase 1)
+# jenkins_access_namespaces = ["weather-staging", "weather-prod"] # default; override to grant Edit on additional namespaces
+
+eks_managed_node_groups = {
+  general = {
+    instance_types = ["t3.medium"]
+    min_size       = 2
+    max_size       = 10
+    desired_size   = 2
+    labels         = { role = "general" }
+  }
+  # Example second pool:
+  # spot = {
+  #   instance_types = ["t3.large", "t3a.large"]
+  #   capacity_type  = "SPOT"
+  #   min_size       = 0
+  #   max_size       = 20
+  #   desired_size   = 0
+  #   labels         = { role = "spot" }
+  #   taints         = { spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" } }
+  # }
+}
+
+# eks_managed_node_group_defaults = { attach_cluster_primary_security_group = false }
+# cluster_addons                  — defaults are usually fine
+# access_entries                  — extra entries beyond operator + jenkins
+
+tags = {
+  Project     = "max-weather"
+  Environment = "poc"
+  ManagedBy   = "terraform"
+}

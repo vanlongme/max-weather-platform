@@ -1,0 +1,8 @@
+region  = "us-east-1"
+project = "max-weather"
+tags = {
+  Project     = "max-weather"
+  Environment = "bootstrap"
+  ManagedBy   = "terraform"
+  Owner       = "your-name"
+}

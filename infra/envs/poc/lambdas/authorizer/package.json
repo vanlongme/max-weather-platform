@@ -1,0 +1,16 @@
+{
+  "name": "max-weather-authorizer",
+  "version": "1.0.0",
+  "description": "Lambda TOKEN authorizer — HS256 JWT verification against Secrets Manager shared secret",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo 'No tests — see D4 decision'"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.600.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,21 @@
+## KEDA Helm chart values (chart version 2.15.2)
+crds:
+  install: true
+operator:
+  replicaCount: 2
+metricsServer:
+  replicaCount: 2
+resources:
+  operator:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  metricServer:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+nodeSelector:
+  role: infra
+tolerations:
+  - key: role
+    operator: Equal
+    value: infra
+    effect: NoSchedule

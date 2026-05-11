@@ -1,0 +1,59 @@
+# ingress-nginx Helm values
+# Chart: https://kubernetes.github.io/ingress-nginx (ingress-nginx 4.11.3)
+# Namespace: ingress-nginx (created by install script)
+controller:
+  replicaCount: 3
+  ingressClassResource:
+    name: nginx
+    default: true
+  service:
+    type: LoadBalancer
+    # externalTrafficPolicy=Local preserves client source IP AND ensures NLB
+    # only health-checks nodes that actually host an ingress-nginx pod. With
+    # the in-tree NLB integration + Bottlerocket nodes, cross-node NodePort
+    # forwarding was producing intermittent timeouts that surfaced as 503s
+    # at API Gateway. Local pinning eliminates the bad path.
+    externalTrafficPolicy: Local
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+  # Spread replicas one-per-AZ so every NLB AZ-zonal IP has a local pod and
+  # passes NLB target health checks.
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+          app.kubernetes.io/instance: ingress-nginx
+          app.kubernetes.io/component: controller
+  config:
+    use-forwarded-headers: "true"
+    enable-real-ip: "true"
+  metrics:
+    enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  nodeSelector:
+    role: infra
+  tolerations:
+    - key: role
+      operator: Equal
+      value: infra
+      effect: NoSchedule
+  admissionWebhooks:
+    patch:
+      nodeSelector:
+        role: infra
+      tolerations:
+        - key: role
+          operator: Equal
+          value: infra
+          effect: NoSchedule

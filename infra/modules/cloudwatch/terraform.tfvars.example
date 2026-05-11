@@ -1,0 +1,39 @@
+cluster_name       = "max-weather"
+log_retention_days = 7
+
+tags = {
+  Project     = "max-weather"
+  Environment = "poc"
+  ManagedBy   = "terraform"
+}
+
+# log_groups is optional. Omit to use the module's 5 built-in defaults
+# (eks_application, eks_control_plane, lambda_authorizer, api_gateway, jenkins).
+#
+# Supplying log_groups REPLACES the defaults entirely — to extend, spread the
+# defaults via a local in the caller (see README "Adding a custom log group").
+#
+# Example: full default map plus a custom entry.
+#
+# log_groups = {
+#   eks_application = {
+#     name = "/aws/eks/__CLUSTER_NAME__/application"
+#   }
+#   eks_control_plane = {
+#     name = "/aws/eks/__CLUSTER_NAME__/cluster"
+#   }
+#   lambda_authorizer = {
+#     name = "/aws/lambda/__CLUSTER_NAME__-authorizer"
+#   }
+#   api_gateway = {
+#     name = "/aws/apigateway/__CLUSTER_NAME__-api"
+#   }
+#   jenkins = {
+#     name = "/aws/ec2/__CLUSTER_NAME__-jenkins"
+#   }
+#   # Custom group with per-group retention override.
+#   my_app = {
+#     name           = "/aws/ec2/myapp"
+#     retention_days = 14
+#   }
+# }

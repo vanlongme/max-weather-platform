@@ -1,0 +1,130 @@
+---
+# Application namespaces — replaces the deleted infra/modules/namespaces
+# Terraform module. Applied by scripts/install-helm-addons.sh after the
+# cluster add-ons are healthy, so NetworkPolicies referencing the
+# `ingress-nginx` namespace match an existing target.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: weather-staging
+  labels:
+    env: staging
+    managed-by: kubectl
+    kubernetes.io/metadata.name: weather-staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: weather-prod
+  labels:
+    env: prod
+    managed-by: kubectl
+    kubernetes.io/metadata.name: weather-prod
+---
+# ResourceQuotas — guard rails so a runaway deployment in one namespace
+# cannot exhaust the (small) POC node group.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-quota
+  namespace: weather-staging
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "50"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-quota
+  namespace: weather-prod
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "50"
+---
+# LimitRanges — provide sensible per-container defaults so pods without
+# explicit requests/limits still satisfy the ResourceQuota above.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: weather-staging
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: weather-prod
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+---
+# NetworkPolicies — default-deny ingress, then allow the ingress-nginx
+# controller. Egress is left open so pods can reach Open-Meteo / AWS APIs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+  namespace: weather-staging
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+  namespace: weather-prod
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-ingress-nginx
+  namespace: weather-staging
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-ingress-nginx
+  namespace: weather-prod
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
