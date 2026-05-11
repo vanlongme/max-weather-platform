@@ -213,7 +213,6 @@ Credentials are stored in **AWS Secrets Manager**, synced into Kubernetes by **E
 - [`jenkins/pipelines/deploy.Jenkinsfile`](pipelines/deploy.Jenkinsfile) — Downstream deploy pipeline
 - [`infra/envs/poc/eks-self-managed-addons/values/jenkins.yaml`](../infra/envs/poc/eks-self-managed-addons/values/jenkins.yaml) — Helm + JCasC + plugin list (Terraform-managed source of truth)
 - [`k8s/README.md`](../k8s/README.md) — Workload manifests deployed by `max-weather-deploy`
-- [`tests/playwright/README.md`](../tests/playwright/README.md) — E2E coverage of the full Jenkins flow
 - [`Makefile`](../Makefile) `deploy-staging` / `deploy-prod` — manual escape hatch (prefer the Jenkins job)
 
 ---

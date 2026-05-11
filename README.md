@@ -25,7 +25,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full component breakdown, data flow, 
 ├── jenkins/             # Declarative pipelines (Jenkinsfile) + Job DSL (jobs.groovy)
 ├── k8s/                 # Kustomize manifests (base/ + overlays/staging|prod, manifests/)
 ├── scripts/             # Operational helpers (issue-token.sh, teardown.sh)
-├── tests/               # KEDA scale tests, k6 load tests, Playwright E2E
+├── tests/               # KEDA scale smoke test + k6 load script
 ├── ARCHITECTURE.md      # Deep-dive: components, data flow, scaling, cost, security
 ├── Makefile             # Entry points: bootstrap, init, apply-all, app-build-push, teardown
 ├── .cloud-nuke.yaml     # cloud-nuke config — final teardown sweep of `*max-weather*`
@@ -96,9 +96,8 @@ newman run docs/postman/max-weather.postman_collection.json \
 | Unit (app) | `app/` | Express handlers, JWT, error paths (Jest + supertest) | `make test` or `cd app && npm test` |
 | KEDA smoke | `tests/keda/` | Validate CPU-driven ScaledObject scales 2→4+ replicas under load and back to 2 | `kubectl apply -f tests/keda/keda-smoke-job.yaml` — see [`tests/keda/README.md`](tests/keda/README.md) |
 | Load (k6) | `tests/load/` | k6 script targeting in-cluster `weather-api` service for sustained CPU pressure | `k6 run tests/load/weather-load.js` |
-| Jenkins E2E | `tests/playwright/` | Playwright drives CI → staging → approval → prod through the Jenkins UI | `cd tests/playwright && npm run test:e2e` — see [`tests/playwright/README.md`](tests/playwright/README.md) |
 
-Evidence (HPA timeline JSON, Playwright traces, k6 summaries) is captured under `docs/evidence/<suite>/` and is gitignored.
+Evidence (HPA timeline JSON, k6 summaries) is captured under `docs/evidence/<suite>/` and is gitignored.
 
 ## Teardown
 
