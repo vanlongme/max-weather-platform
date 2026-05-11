@@ -1,0 +1,32 @@
+# aws-for-fluent-bit Helm values
+# Chart: https://aws.github.io/eks-charts (aws-for-fluent-bit 0.1.34)
+# Namespace: amazon-cloudwatch (created by install script)
+# Templated values (must be substituted by install script):
+#   ${AWS_REGION}      - AWS region
+#   ${LOG_GROUP_NAME}  - CloudWatch Logs group (terraform output: eks_application_log_group)
+#
+# IAM: bound via EKS Pod Identity (namespace=amazon-cloudwatch, sa=fluent-bit).
+# Association created by infra/modules/eks; no SA annotation required.
+cloudWatchLogs:
+  enabled: true
+  region: ${AWS_REGION}
+  logGroupName: ${LOG_GROUP_NAME}
+  logStreamPrefix: fluent-bit-
+  autoCreateGroup: false
+kinesis:
+  enabled: false
+firehose:
+  enabled: false
+elasticsearch:
+  enabled: false
+serviceAccount:
+  create: true
+  name: fluent-bit
+tolerations:
+  - operator: Exists
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+  limits:
+    memory: 200Mi
