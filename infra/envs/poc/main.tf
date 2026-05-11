@@ -26,13 +26,6 @@ module "ecr" {
   tags         = local.common_tags
 }
 
-removed {
-  from = module.cognito
-  lifecycle {
-    destroy = false
-  }
-}
-
 module "secrets" {
   source = "../../modules/secrets"
 
@@ -47,7 +40,27 @@ module "lambda" {
   name = local.master_prefix
   tags = local.common_tags
 
-  functions = var.lambda_functions
+  functions = length(var.lambda_functions) > 0 ? var.lambda_functions : {
+    authorizer = {
+      source_dir      = "${path.module}/../../../lambda-authorizer"
+      handler         = "src/index.handler"
+      runtime         = "nodejs22.x"
+      memory_size     = 128
+      timeout         = 5
+      role_arn        = module.iam.lambda_authorizer_role_arn
+      npm_install_dir = "${path.module}/../../../lambda-authorizer"
+      environment = {
+        AUTHORIZER_SECRET_ARN = module.secrets.authorizer_jwt_secret_arn
+        REQUIRED_SCOPE        = "weather-api/read"
+        JWT_ISSUER            = "max-weather-authorizer"
+      }
+      invoke_principals = {
+        api-gateway = "arn:aws:execute-api:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+      }
+    }
+  }
+
+  depends_on = [module.iam, module.secrets]
 }
 
 module "iam" {

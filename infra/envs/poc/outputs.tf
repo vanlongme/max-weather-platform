@@ -30,7 +30,7 @@ output "oidc_provider_url" {
 
 output "ecr_api_repository_url" {
   description = "ECR URL for the weather API image."
-  value       = module.ecr.repository_urls["${local.master_prefix}-api"]
+  value       = module.ecr.repository_urls["${local.master_prefix}-api-repo"]
 }
 
 output "lambda_authorizer_function_name" {

@@ -187,6 +187,38 @@ locals {
             ]
             Resource = "*"
           },
+          {
+            Effect = "Allow"
+            Action = [
+              "ec2:CreateSecurityGroup",
+              "ec2:CreateTags",
+              "ec2:DeleteTags",
+              "ec2:DeleteSecurityGroup",
+              "ec2:AuthorizeSecurityGroupIngress",
+              "ec2:RevokeSecurityGroupIngress",
+              "ec2:ModifyNetworkInterfaceAttribute",
+              "ec2:DescribeIpamPools",
+              "ec2:GetSecurityGroupsForVpc",
+              "shield:GetSubscriptionState",
+              "shield:DescribeProtection",
+              "shield:CreateProtection",
+              "shield:DeleteProtection",
+              "wafv2:GetWebACL",
+              "wafv2:GetWebACLForResource",
+              "wafv2:AssociateWebACL",
+              "wafv2:DisassociateWebACL",
+              "waf-regional:GetWebACL",
+              "waf-regional:GetWebACLForResource",
+              "waf-regional:AssociateWebACL",
+              "waf-regional:DisassociateWebACL",
+              "acm:DescribeCertificate",
+              "acm:ListCertificates",
+              "iam:GetServerCertificate",
+              "iam:ListServerCertificates",
+              "cognito-idp:DescribeUserPoolClient",
+            ]
+            Resource = "*"
+          },
         ]
       })
     }

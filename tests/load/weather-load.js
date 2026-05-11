@@ -48,7 +48,7 @@ export default function (data) {
     [`${city.name} has current_weather`]: (r) => {
       try {
         return JSON.parse(r.body).current_weather !== undefined;
-      } catch {
+      } catch (_) {
         return false;
       }
     },

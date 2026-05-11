@@ -34,9 +34,6 @@ variable "log_groups" {
     eks_control_plane = {
       name = "/aws/eks/__CLUSTER_NAME__/cluster"
     }
-    lambda_authorizer = {
-      name = "/aws/lambda/__CLUSTER_NAME__-authorizer"
-    }
     api_gateway = {
       name = "/aws/apigateway/__CLUSTER_NAME__-api"
     }

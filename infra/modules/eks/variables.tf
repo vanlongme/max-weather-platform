@@ -55,17 +55,19 @@ variable "jenkins_access_namespaces" {
 variable "eks_managed_node_groups" {
   description = "Map of EKS managed node group definitions, keyed by node group name. Each entry is passed through to the upstream eks_managed_node_groups input. Default AMI is Bottlerocket; default group is a single t3.medium init worker (Karpenter handles workload scale-out)."
   type = map(object({
-    name           = optional(string)
-    instance_types = optional(list(string), ["t3.medium"])
-    min_size       = optional(number, 1)
-    max_size       = optional(number, 10)
-    desired_size   = optional(number, 1)
-    capacity_type  = optional(string, "ON_DEMAND")
-    ami_type       = optional(string, "BOTTLEROCKET_x86_64")
-    disk_size      = optional(number, 20)
-    labels         = optional(map(string), {})
-    taints         = optional(map(object({ key = string, value = optional(string), effect = string })), {})
-    tags           = optional(map(string), {})
+    create                   = optional(bool, true)
+    name                     = optional(string)
+    instance_types           = optional(list(string), ["t3.medium"])
+    min_size                 = optional(number, 1)
+    max_size                 = optional(number, 10)
+    desired_size             = optional(number, 1)
+    capacity_type            = optional(string, "ON_DEMAND")
+    ami_type                 = optional(string, "BOTTLEROCKET_x86_64")
+    disk_size                = optional(number, 20)
+    labels                   = optional(map(string), {})
+    taints                   = optional(map(object({ key = string, value = optional(string), effect = string })), {})
+    tags                     = optional(map(string), {})
+    iam_role_use_name_prefix = optional(bool, false)
   }))
   default = {
     general = {

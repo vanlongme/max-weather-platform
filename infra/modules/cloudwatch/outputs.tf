@@ -14,8 +14,8 @@ output "eks_application_log_group" {
 }
 
 output "lambda_authorizer_log_group" {
-  description = "Name of the Lambda authorizer log group."
-  value       = aws_cloudwatch_log_group.groups["lambda_authorizer"].name
+  description = "Name of the Lambda authorizer log group (now created by lambda module)."
+  value       = try(aws_cloudwatch_log_group.groups["lambda_authorizer"].name, "")
 }
 
 output "api_gateway_log_group" {

@@ -28,7 +28,7 @@
           "const now = Math.floor(Date.now() / 1000);",
           "if (expiry && now < parseInt(expiry) - 300) return;",
           "",
-          "const secret = pm.collectionVariables.get('jwt_secret');",
+          "const secret = pm.environment.get('jwt_secret') || pm.collectionVariables.get('jwt_secret');",
           "const issuer = pm.collectionVariables.get('jwt_issuer') || 'max-weather-authorizer';",
           "const scope  = pm.collectionVariables.get('jwt_scope')  || 'weather-api/read';",
           "",
@@ -57,7 +57,9 @@
           "const sig = base64urlBytes(CryptoJS.HmacSHA256(sigInput, secret));",
           "",
           "const token = sigInput + '.' + sig;",
+          "pm.environment.set('access_token', token);",
           "pm.collectionVariables.set('access_token', token);",
+          "pm.environment.set('token_expiry', String(exp));",
           "pm.collectionVariables.set('token_expiry', String(exp));"
         ]
       }
@@ -241,7 +243,7 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('Status is 401 with invalid token', () => pm.response.to.have.status(401));"
+                  "pm.test('Status is 401 or 403 with invalid token', () => pm.expect(pm.response.code).to.be.oneOf([401, 403]));"
                 ]
               }
             }

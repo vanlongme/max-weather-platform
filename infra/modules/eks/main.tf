@@ -36,9 +36,7 @@ module "eks" {
             }
           }
         }
-      }
-    },
-    var.jenkins_role_arn == "" ? {} : {
+      },
       (var.jenkins_access_entry_key) = {
         principal_arn = var.jenkins_role_arn
         policy_associations = {
@@ -62,7 +60,9 @@ module "eks" {
       var.eks_managed_node_group_defaults,
       v,
       {
-        name = coalesce(v.name, "${var.name}${var.node_group_name_separator}${k}")
+        create                   = v.create
+        iam_role_use_name_prefix = v.iam_role_use_name_prefix
+        name                     = coalesce(v.name, "${var.name}${var.node_group_name_separator}${k}")
         tags = merge(var.tags, v.tags, {
           (var.cluster_autoscaler_enabled_tag_key)                              = var.cluster_autoscaler_enabled_tag_value
           "${var.cluster_autoscaler_owned_tag_key_prefix}${local.cluster_name}" = var.cluster_autoscaler_owned_tag_value
@@ -101,6 +101,7 @@ module "karpenter" {
   iam_role_use_name_prefix   = var.karpenter_iam_role_use_name_prefix
   iam_policy_name            = "${var.name}${var.karpenter_iam_policy_name_suffix}"
   iam_policy_use_name_prefix = var.karpenter_iam_policy_use_name_prefix
+  enable_inline_policy       = true
 
   node_iam_role_name            = "${var.name}${var.karpenter_node_iam_role_name_suffix}"
   node_iam_role_use_name_prefix = var.karpenter_node_iam_role_use_name_prefix

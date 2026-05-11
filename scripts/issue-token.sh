@@ -34,7 +34,7 @@ if [[ -z "${AUTHORIZER_JWT_SECRET:-}" ]]; then
     echo >&2 "       Run: make apply  then  make issue-token"
     exit 1
   fi
-  AUTHORIZER_JWT_SECRET=$(aws secretsmanager get-secret-value \
+  export AUTHORIZER_JWT_SECRET=$(aws secretsmanager get-secret-value \
     --secret-id "$AUTHORIZER_SECRET_ARN" \
     --region "$AWS_REGION" \
     --query SecretString \
@@ -59,7 +59,7 @@ const payload = {
 const secret = process.env.AUTHORIZER_JWT_SECRET;
 const token = jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn: ${JWT_EXPIRY} });
 process.stdout.write(token);
-" 2>/dev/null) || {
+") || {
   echo >&2 "ERROR: Failed to sign JWT. Ensure lambda-authorizer/node_modules/ exists."
   echo >&2 "       Run: make lambda-deps"
   exit 1

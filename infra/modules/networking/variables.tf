@@ -75,7 +75,7 @@ variable "public_route_table_name_suffix" {
 }
 
 variable "map_public_ip_on_launch" {
-  description = "Whether public subnets assign a public IPv4 to instances launched into them. POC topology requires true so worker nodes can reach ECR/Cognito/Open-Meteo without a NAT Gateway."
+  description = "Whether public subnets assign a public IPv4 to instances launched into them. POC topology requires true so worker nodes can reach ECR/Open-Meteo without a NAT Gateway."
   type        = bool
   default     = true
 }

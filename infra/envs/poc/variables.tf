@@ -101,14 +101,32 @@ variable "pod_identity_roles" {
 }
 
 variable "iam_service_roles" {
-  description = "Map of AWS service-principal IAM roles to create via the iam module (e.g. Lambda execution roles, EC2 instance roles). Empty by default."
+  description = "Map of AWS service-principal IAM roles to create via the iam module (e.g. Lambda execution roles, EC2 instance roles). Default ships the lambda_authorizer execution role (Secrets Manager scoped to the authorizer JWT secret)."
   type = map(object({
     service_principals  = list(string)
     policy_json         = optional(string)
     managed_policy_arns = optional(list(string), [])
     role_name_suffix    = optional(string)
   }))
-  default = {}
+  default = {
+    lambda_authorizer = {
+      service_principals  = ["lambda.amazonaws.com"]
+      managed_policy_arns = ["arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+      policy_json         = <<-EOT
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowGetSecret",
+              "Effect": "Allow",
+              "Action": "secretsmanager:GetSecretValue",
+              "Resource": "arn:__AWS_PARTITION__:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:__CLUSTER_NAME__-authorizer-jwt-secret-*"
+            }
+          ]
+        }
+      EOT
+    }
+  }
 }
 
 variable "iam_irsa_roles" {
@@ -123,7 +141,7 @@ variable "iam_irsa_roles" {
 }
 
 variable "log_groups" {
-  description = "Map of CloudWatch log groups to create. Each name may contain the literal __CLUSTER_NAME__ placeholder. Defaults match the prior hardcoded set: eks_application, eks_control_plane, lambda_authorizer, api_gateway, jenkins."
+  description = "Map of CloudWatch log groups to create. Each name may contain the literal __CLUSTER_NAME__ placeholder. Defaults: eks_application, eks_control_plane, api_gateway, jenkins. Note: lambda_authorizer LG is created by the lambda module (not here)."
   type = map(object({
     name           = string
     retention_days = optional(number)
@@ -134,9 +152,6 @@ variable "log_groups" {
     }
     eks_control_plane = {
       name = "/aws/eks/__CLUSTER_NAME__/cluster"
-    }
-    lambda_authorizer = {
-      name = "/aws/lambda/__CLUSTER_NAME__-authorizer"
     }
     api_gateway = {
       name = "/aws/apigateway/__CLUSTER_NAME__-api"
@@ -157,8 +172,8 @@ variable "ecr_repositories" {
     tag_prefix_list            = optional(list(string), ["staging-", "prod-"])
   }))
   default = {
-    "__CLUSTER_NAME__-api"         = {}
-    "__CLUSTER_NAME__-base-nodejs" = {}
+    api         = {}
+    base-nodejs = {}
   }
 }
 
