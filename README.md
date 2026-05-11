@@ -70,13 +70,43 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 The Lambda authorizer (`infra/envs/poc/lambdas/authorizer/src/index.js`) verifies HS256 signature + scope, fetching the shared secret from Secrets Manager (cached per Lambda container lifetime).
 
+## API Collection & Test Suites
+
+### Postman Collection — `docs/postman/`
+
+- `max-weather.postman_collection.json` — request collection (health, weather, JWT helper)
+- `staging.postman_environment.template.json` / `prod.postman_environment.template.json` — env templates (fill in `invoke_url` + `jwt_secret`)
+
+Import the collection + chosen env template into Postman, populate the two empty fields, and the pre-request script auto-mints an HS256 token using `jwt_secret` / `jwt_issuer` / `jwt_scope` (matches what the Lambda authorizer verifies).
+
+CLI alternative via Newman:
+
+```bash
+npm i -g newman
+newman run docs/postman/max-weather.postman_collection.json \
+  -e docs/postman/staging.postman_environment.template.json \
+  --env-var "invoke_url=$(cd infra/envs/poc && terraform output -raw api_gateway_invoke_url_staging)" \
+  --env-var "jwt_secret=$(aws secretsmanager get-secret-value --secret-id poc-max-weather-authorizer-jwt-secret --query SecretString --output text)"
+```
+
+### Test Suites — `tests/`
+
+| Suite | Location | Purpose | Entry point |
+|-------|----------|---------|-------------|
+| Unit (app) | `app/` | Express handlers, JWT, error paths (Jest + supertest) | `make test` or `cd app && npm test` |
+| KEDA smoke | `tests/keda/` | Validate CPU-driven ScaledObject scales 2→4+ replicas under load and back to 2 | `kubectl apply -f tests/keda/keda-smoke-job.yaml` — see [`tests/keda/README.md`](tests/keda/README.md) |
+| Load (k6) | `tests/load/` | k6 script targeting in-cluster `weather-api` service for sustained CPU pressure | `k6 run tests/load/weather-load.js` |
+| Jenkins E2E | `tests/playwright/` | Playwright drives CI → staging → approval → prod through the Jenkins UI | `cd tests/playwright && npm run test:e2e` — see [`tests/playwright/README.md`](tests/playwright/README.md) |
+
+Evidence (HPA timeline JSON, Playwright traces, k6 summaries) is captured under `docs/evidence/<suite>/` and is gitignored.
+
 ## Teardown
 
 ```bash
 make teardown
 ```
 
-Runs `scripts/teardown.sh` — 10 ordered phases: kubectl delete → Karpenter drain → helm uninstall → namespace cleanup → `terraform destroy` (workload + bootstrap). The final phase shells out to **[cloud-nuke](https://github.com/gruntwork-io/cloud-nuke)** (`./cloud-nuke_linux_amd64 aws --config .cloud-nuke.yaml --force`) to sweep every remaining AWS resource matching `*max-weather*` (incl. tfstate S3 bucket + tflock DynamoDB), guaranteeing the account returns to zero even if Terraform leaves stragglers. Full phase detail in [ARCHITECTURE.md](ARCHITECTURE.md).
+Runs `scripts/teardown.sh` — single-shot force teardown via **[cloud-nuke](https://github.com/gruntwork-io/cloud-nuke)**: empty ECR repos → force-delete Secrets Manager secrets (no recovery window) → `./cloud-nuke_linux_amd64 aws --config .cloud-nuke.yaml --force` sweeps every AWS resource matching `*max-weather*` (EKS, VPC, Lambda, NLB, tfstate S3 + tflock DynamoDB). No ordered kubectl/helm drain — cloud-nuke yanks everything in one pass. Account returns to zero in ~5 min.
 
 ## License
 

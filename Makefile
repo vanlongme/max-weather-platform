@@ -116,8 +116,8 @@ test: ## Run app tests
 lint: ## Lint application code
 	cd app && npm run lint
 
-teardown: ## Ordered teardown of all infrastructure (interactive)
+teardown: ## Force teardown via cloud-nuke — wipes all max-weather AWS resources (interactive)
 	bash scripts/teardown.sh
 
-teardown-force: ## Teardown without interactive prompt (CI use only)
+teardown-force: ## Force teardown without interactive prompt (CI use only)
 	@echo "destroy max-weather" | bash scripts/teardown.sh
