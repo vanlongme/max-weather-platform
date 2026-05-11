@@ -66,7 +66,7 @@ variable "irsa_roles" {
 }
 
 variable "pod_identity_roles" {
-  description = "Map of EKS Pod Identity roles (pods.eks.amazonaws.com trust). When null, the module ships the five built-in workload roles: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. Override (replaces defaults entirely — re-declare any built-ins to keep). The module creates roles + inline policies only; Pod Identity associations are created by the eks module via the role_bindings output."
+  description = "Map of EKS Pod Identity roles (pods.eks.amazonaws.com trust). When null, the module ships the five built-in workload roles: jenkins, cluster-autoscaler, fluent-bit, external-secrets. Override (replaces defaults entirely — re-declare any built-ins to keep). The module creates roles + inline policies only; Pod Identity associations are created by the eks module via the role_bindings output."
   type = map(object({
     namespace        = string
     service_account  = string

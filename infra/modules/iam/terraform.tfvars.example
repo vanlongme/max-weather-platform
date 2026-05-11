@@ -8,8 +8,8 @@ tags = {
   ManagedBy   = "terraform"
 }
 
-# Defaulting pod_identity_roles to null ships the five built-in workload roles
-# (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets).
+# Defaulting pod_identity_roles to null ships the four built-in workload roles
+# (jenkins, cluster-autoscaler, fluent-bit, external-secrets).
 # Supplying a map below REPLACES the defaults — re-declare any built-ins to keep.
 pod_identity_roles = null
 

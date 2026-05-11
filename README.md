@@ -1,13 +1,8 @@
-# Max Weather — 101 Digital DevOps Assessment
+# Max Weather — DevOps Assessment
 
 ## TL;DR
 
-Max Weather is a containerized weather API on AWS EKS, fronted by API Gateway with a
-Lambda authorizer that validates HS256 JWTs (shared secret in Secrets Manager). The full stack is provisioned via
-Terraform (multi-environment, remote state), deployed by a Jenkins declarative
-pipeline (build, test, push to ECR, kubectl apply), and observable via CloudWatch
-Container Insights with HPA-based autoscaling. A k6 load test demonstrates HPA
-scaling end-to-end, and a single `make teardown` returns the AWS account to zero.
+Max Weather is a containerized Node.js weather API on AWS EKS, fronted by API Gateway HTTP API with a Lambda HS256 JWT authorizer. Full stack provisioned via Terraform (modular, remote state). Deployed by Jenkins declarative pipeline. KEDA ScaledObject (cpu) drives pod autoscaling; Karpenter handles workload node provisioning. Single `make teardown` returns the AWS account to zero.
 
 ## Architecture
 
@@ -15,232 +10,38 @@ scaling end-to-end, and a single `make teardown` returns the AWS account to zero
 
 Source: [`docs/architecture.drawio`](docs/architecture.drawio)
 
-The data plane:
-
-1. Client issues an HS256 JWT via `make issue-token` (reads shared secret from Secrets Manager).
-2. Client calls `GET /weather` on the API Gateway HTTP API endpoint with `Authorization: Bearer <token>`.
-3. API Gateway invokes the Lambda authorizer, which verifies the HS256 signature using the shared secret and checks the scope.
-4. On allow, API Gateway forwards the request via VPC Link to an internal Network Load Balancer.
-5. The NLB targets the `ingress-nginx` Service inside EKS, which routes by Host/path to the `weather-api` Service.
-6. `weather-api` pods (Node.js) call Open-Meteo and return JSON. Logs ship to CloudWatch via Fluent Bit; metrics flow to Container Insights, driving the HPA.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for full component breakdown, data flow, scaling design, cost estimate, and security posture.
 
 ## Deliverables
 
 | ID | Deliverable | Location |
 |----|-------------|----------|
 | D1 | Architecture diagram | `docs/architecture.drawio`, `docs/architecture.png` |
-| D2 | Terraform IaC (modular, remote state) | `infra/bootstrap/`, `infra/envs/poc/`, `infra/modules/` (each module ships README.md + terraform.tfvars.example) |
-| D3 | Kubernetes manifests + Helm charts | `k8s/base/`, `k8s/overlays/{staging,prod}/`, `k8s/helm/`, `scripts/install-helm-addons.sh` |
-| D4 | Jenkins CI/CD pipeline | `jenkins/pipelines/ci.Jenkinsfile`, `jenkins/pipelines/deploy.Jenkinsfile`, `jenkins/jobs.groovy`, `ci/README.md`, `jenkins/README.md` |
-| D5 | API Gateway + Lambda authorizer (HS256) | `infra/modules/lambda/`, `lambda-authorizer/`, `docs/api-gateway-runbook.md` |
-| D6 | Postman collection + load test | `docs/postman/`, `tests/load/weather-load.js` |
+| D2 | Terraform IaC (modular, remote state) | `infra/bootstrap/`, `infra/envs/poc/`, `infra/modules/` |
+| D3 | K8s manifests + cluster addons (Terraform Helm) | `k8s/base/`, `k8s/overlays/`, `infra/envs/poc/eks-self-managed-addons/` |
+| D4 | Jenkins CI/CD | `jenkins/pipelines/`, `jenkins/jobs.groovy`, `jenkins/README.md` |
+| D5 | API GW + Lambda authorizer (HS256) | `infra/envs/poc/lambdas/authorizer/`, `scripts/api-gw-setup.sh` |
+| D6 | Postman collection | `docs/postman/` |
 
 ## Prerequisites
 
-- AWS account with admin rights and a CLI profile (default region `us-east-1`)
-- AWS CLI v2, Terraform 1.6+, kubectl 1.29+, Helm 3.13+, Docker (with buildx)
-- Node.js 20+ (for the application and Lambda authorizer)
-- `newman` (for Postman runs): `npm i -g newman newman-reporter-htmlextra`
-- `k6` (for load tests): `brew install k6` or [k6 installation docs](https://k6.io/docs/getting-started/installation/)
-- `cloud-nuke` (for orphan cleanup, optional): download `cloud-nuke_linux_amd64` from [Gruntwork releases](https://github.com/gruntwork-io/cloud-nuke/releases)
+- AWS account + CLI (admin rights, default region `us-east-1`)
+- Terraform 1.6+, kubectl 1.29+, Helm 3.13+, Docker (buildx), Node.js 20+
+- `newman`: `npm i -g newman`
 
 ## Quick Start
 
-End-to-end deployment from a clean AWS account:
-
 ```bash
-# 1. Initialize remote state backend (S3 + DynamoDB)
-make bootstrap
-
-# 2. Provision all infrastructure (VPC, EKS, ECR, Lambda, API GW)
-make init
-make plan
-make apply        # ~20 minutes
-
-# 3. Configure kubectl
+make bootstrap                              # Remote state backend (S3 + DynamoDB)
+make init && make plan && make apply        # Provision all infra (~20 min)
 aws eks update-kubeconfig --name max-weather --region us-east-1
-
-# 4. Install cluster Helm add-ons (ingress-nginx, autoscaler, fluent-bit, etc.)
-make install-addons
-
-# 5. Build and push the application image
-make app-build-push
-
-# 6. Install Lambda authorizer dependencies (required before terraform plan/apply)
-make lambda-deps
-
-# 7. Deploy Kubernetes workloads (re-runs install-addons idempotently)
-make deploy-staging
-
-# 7. Smoke-test through API Gateway
-make postman
-
-# 8. Run load test and capture HPA evidence
-make load-test
-
-# 9. Collect all evidence into docs/evidence/
-make evidence
-make verify-evidence
+make app-build-push                         # Build + push weather-api to ECR
+make lambda-deps                            # Install Lambda authorizer deps
+make deploy-staging                         # Apply k8s workloads (staging)
+make api-gw-setup                           # Wire API Gateway + VPC Link (post-EKS)
 ```
-
-## Repository Layout
-
-```
-.
-├── jenkins/                     # Job DSL + JCasC pipeline definitions (see jenkins/README.md)
-│   ├── jobs.groovy              # Job DSL seed — defines max-weather-ci + max-weather-deploy
-│   ├── pipelines/
-│   │   ├── ci.Jenkinsfile       # Upstream CI pipeline (build, test, push, trigger)
-│   │   └── deploy.Jenkinsfile   # Downstream deploy pipeline (validate, apply, smoke, rollback)
-│   └── README.md                # Operator guide for the 2-job Jenkins flow
-├── Makefile                     # Operator entrypoints
-├── README.md                    # You are here
-├── app/                         # Weather API (Node.js) — owns its Dockerfile (Jenkins pipelines live in `jenkins/`)
-├── base-image/                  # Chainguard apko base Node.js image (apko.yaml + build.sh)
-├── lambda-authorizer/           # HS256 JWT validator (Node.js, @aws-sdk/client-secrets-manager)
-├── infra/
-│   ├── bootstrap/               # Remote state backend (S3 + DynamoDB)
-│   ├── envs/
-│   │   └── poc/                 # Single POC composition — hosts both weather-staging + weather-prod namespaces
-│   └── modules/                 # Reusable Terraform modules (each ships README.md + terraform.tfvars.example)
-│       │                        # Every module follows the same file layout: variables.tf, main.tf,
-│       │                        # outputs.tf, versions.tf — plus locals.tf where computed values exist
-│       │                        # and data.tf where AWS data sources are read. All resource arguments
-│       │                        # are driven by variables (defaults preserve byte-for-byte behavior).
-│       ├── networking/          # VPC + public subnets + IGW (POC: no NAT/private subnets — see module README)
-│       ├── eks/                 # Wraps terraform-aws-modules/eks/aws ~> 21.20 + Karpenter sub-module
-│       │                        # (IAM, SQS, instance profile, Pod Identity — no IRSA SA annotation)
-│       ├── ecr/                 # Container registries
-│       ├── lambda/              # Generic Lambda function deployer (map(object), archive_file)
-│       ├── iam/                 # Multi-type IAM role factory: service_roles (EC2/Lambda trust), irsa_roles (legacy OIDC), pod_identity_roles (default; 5 built-ins: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets)
-│       ├── secrets/             # Secrets Manager seed values
-│       └── cloudwatch/          # Log groups
-├── k8s/
-│   ├── base/                    # Kustomize base (Deployment, Service, HPA, NetworkPolicy, ResourceQuota)
-│   ├── overlays/
-│   │   ├── staging/             # min replicas 2, lower limits
-│   │   └── prod/                # min replicas 3, higher limits
-│   ├── manifests/               # Raw kubectl-applied YAML (namespaces, ResourceQuota, NetworkPolicies)
-│   └── helm/                    # Helm-managed cluster addons (values.yaml per chart)
-│       ├── nginx-ingress/
-│       ├── cluster-autoscaler/
-│       ├── fluent-bit/
-│       ├── aws-lb-controller/
-│       ├── external-secrets/
-│       ├── metrics-server/
-│       ├── jenkins/             # jenkinsci/jenkins chart, latest version at install (Pod Identity + ingress-nginx)
-│       └── karpenter/           # Karpenter v1.6.0 chart values + EC2NodeClass + NodePool
-
-├── docs/
-│   ├── architecture.drawio      # Source diagram
-│   ├── architecture.png         # Rendered diagram
-│   ├── api-gateway-runbook.md   # Manual API Gateway / VPC Link / Authorizer wiring
-│   ├── postman/                 # Postman collection + env template
-│   └── evidence/                # Captured evidence (terraform, k8s, k6, CloudWatch, teardown — populated by `make evidence`)
-├── tests/
-│   └── load/weather-load.js     # k6 load test
-└── scripts/                     # Operational scripts
-    ├── issue-token.sh
-    ├── run-postman.sh
-    ├── run-loadtest.sh
-    ├── force-scale-demo.sh
-    ├── collect-evidence.sh
-    ├── verify-evidence.sh
-    ├── sanitize-outputs.sh
-    ├── install-helm-addons.sh
-    ├── teardown.sh
-    └── cloud-nuke-wrapper.sh
-```
-
-## Configuration
-
-Per-environment Terraform variables live in `infra/envs/poc/terraform.tfvars`
-(copy from `terraform.tfvars.example` and fill in your operator IP and lambda_functions
-map). The single `poc` env hosts both `weather-staging` and
-`weather-prod` Kubernetes namespaces in one cluster.
-Key variables:
-
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `region` | AWS region | `us-east-1` |
-| `project` | Tag prefix and resource name component | `max-weather` |
-| `environment` | Env name (used in tags and DNS) | `staging` |
-| `vpc_cidr` | VPC IPv4 CIDR | `10.20.0.0/16` |
-| `azs` | Availability zones | `["us-east-1a","us-east-1b"]` |
-| `eks_cluster_version` | Kubernetes minor | `1.34` |
-| `eks_managed_node_groups` | EKS managed node groups (map of objects); default ships single `general` Bottlerocket t3.medium 1/10/1 init worker (Karpenter scales the rest) | see `terraform.tfvars.example` |
-| `cluster_addons` | EKS add-ons; defaults: CoreDNS, kube-proxy, VPC CNI, EKS Pod Identity Agent | `{ ... }` |
-| `pod_identity_roles` | Map of EKS Pod Identity roles to create (associations bound by `module.eks`); default ships 5 built-ins (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets). `iam_service_roles` and `iam_irsa_roles` are also exposed for traditional EC2/Lambda and legacy IRSA roles respectively. | see `terraform.tfvars.example` |
-| `log_groups` / `secrets` / `ecr_repositories` / `lambda_functions` | Map-driven resource sets; names may include `__CLUSTER_NAME__` placeholder substituted at apply time | see `terraform.tfvars.example` |
-
-> **Map-variable semantics**: supplying any of the `map(object)` variables above
-> **REPLACES** the module's default map entirely (no merge). Re-declare any
-> built-in entries you want to keep. Resource names accept literal placeholders
-> `__CLUSTER_NAME__`, `__AWS_REGION__`, `__AWS_ACCOUNT_ID__`, `__AWS_PARTITION__`
-> which are substituted by the modules at apply time.
-
-All resources are tagged with `Project=max-weather` so cost and cleanup queries
-can scope to this assessment.
-
-### Resource naming convention
-
-Every module accepts a single `var.name` prefix (composition wires
-`name = local.master_prefix` where `master_prefix = "${environment}-${project}"` → `poc-max-weather`).
-Each resource appends a type suffix (overridable via the corresponding
-`*_name_suffix` variable on the module — defaults preserve byte-for-byte behavior).
-With the default suffix scheme:
-
-| Module | Resource | Final name (e.g. `var.name = "poc-max-weather"`) |
-|--------|----------|---------------------------------------------------|
-| `eks` | cluster | `poc-max-weather-cluster` |
-| `eks` | karpenter controller role / policy | `poc-max-weather-karpenter-controller-role` / `-policy` |
-| `eks` | karpenter node role / SQS queue | `poc-max-weather-karpenter-node-role` / `poc-max-weather-karpenter-queue` |
-| `iam` | role (per map key) | `poc-max-weather-<key>-role` |
-| `networking` | VPC / IGW / public RT | `poc-max-weather-vpc` / `-igw` / `-public-rt` |
-| `lambda` | function | `poc-max-weather-<key>` |
-| `ecr` | repository | `poc-max-weather-<key>-repo` |
-| `secrets` | secret | `poc-max-weather-<key>-secret` |
-| `cloudwatch` | log group | `poc-max-weather-<key>-logs` |
-
-The `networking` module additionally takes `var.eks_cluster_name` (composition
-passes `"${local.master_prefix}-cluster"`) to set the value of
-`kubernetes.io/cluster/<cluster_name>` and `karpenter.sh/discovery` subnet
-tags — these tag VALUES must equal the actual EKS cluster name for subnet
-discovery to work.
-
-## Cost Estimate
-
-Steady-state monthly cost (us-east-1, on-demand pricing) for the POC stack
-(public-subnet topology — no NAT GW, no VPC endpoints):
-
-| Service | Monthly USD |
-|---------|-------------|
-| EKS control plane | 73 |
-| 1 x t3.medium init worker node (Bottlerocket) | 30 |
-| NLB (created by ingress-nginx Service, internet-facing) | 18 |
-| ECR storage (~5 GB) | 1 |
-| CloudWatch Logs (5 log groups, ~5 GB ingest) | 8 |
-| Container Insights metrics | 5 |
-| Lambda authorizer (free tier) | 0 |
-| API Gateway HTTP API (low volume) | 1 |
-| Cognito (removed — replaced by HS256 Lambda authorizer) | 0 |
-| Secrets Manager (5 secrets) | 2 |
-| Jenkins (in-cluster pod, 8Gi gp3 PVC) | 1 |
-| **Total** | **~139** |
-
-POC topology savings vs a production-style network:
-
-| Removed | Monthly USD saved |
-|---------|-------------------|
-| NAT Gateway (1) + data processing | ~35 |
-| 3 x Interface VPC Endpoints (ECR API/DKR + Logs) | ~21 |
-
-For a 2-day demo (`apply` -> evaluate -> `teardown`), prorated cost is ~$12.
-Run `make teardown` immediately after evaluation to avoid drift.
 
 ## Authentication
-
-The API uses HS256 JWT authentication with a shared secret stored in AWS Secrets Manager.
 
 ```bash
 TOKEN=$(make issue-token)
@@ -248,131 +49,25 @@ curl -H "Authorization: Bearer $TOKEN" \
   "$(cd infra/envs/poc && terraform output -raw api_gateway_invoke_url)/weather?latitude=10.78&longitude=106.70"
 ```
 
-The Lambda authorizer (`lambda-authorizer/src/index.js`):
-
-1. Extracts `Bearer <jwt>` from the `Authorization` header.
-2. Fetches the HS256 shared secret from Secrets Manager (cached in memory across invocations).
-3. Verifies signature (`algorithms: ['HS256']`), expiry, and `scope` includes `weather-api/read`.
-4. Returns `{ isAuthorized: true|false }`.
-
-Secret is fetched once per Lambda container lifetime (cached), so warm latency is < 10ms.
-
-## Observability
-
-CloudWatch log groups (one per workload, 7-day retention by default):
-
-| Group | Source |
-|-------|--------|
-| `/aws/eks/max-weather/cluster` | EKS control plane (api, audit, authenticator) |
-| `/aws/eks/max-weather/application` | Pod stdout/stderr via Fluent Bit DaemonSet |
-| `/aws/lambda/max-weather-authorizer` | Lambda authorizer invocation logs |
-| `/aws/apigateway/max-weather-api` | API Gateway access logs |
-| `/aws/eks/max-weather/host` | Node-level systemd / kubelet via Fluent Bit |
-
-Container Insights provides per-pod CPU/memory/network metrics under the
-`ContainerInsights` namespace, dimensioned by `ClusterName` and `Namespace`.
-
-Live troubleshooting:
-
-```bash
-kubectl get hpa -n weather-staging -w
-kubectl top pods -n weather-staging
-kubectl logs -n weather-staging -l app=weather-api --tail=100 -f
-aws logs tail /aws/eks/max-weather/application --follow --region us-east-1
-```
-
-## Cluster Autoscaling: Cluster Autoscaler + Karpenter
-
-The cluster runs **both** node autoscalers side-by-side, with strict separation of duties:
-
-| Autoscaler | Manages | Why both? |
-|------------|---------|-----------|
-| **Cluster Autoscaler** (`9.37.0`) | The static `general` Bottlerocket Managed Node Group (min 1, max 10 t3.medium init worker) that hosts system pods (kube-system, ingress-nginx, autoscalers themselves) | Provides a stable baseline so cluster-critical pods always have somewhere to land, including Karpenter's controller itself |
-| **Karpenter** (`v1.6.0`) | All other workload pods via `NodePool` / `EC2NodeClass` (on-demand t3.medium-large, AL2023) | Faster scale-up (~30s vs ~3min), bin-packing, and consolidation — ideal for the bursty `weather-api` HPA |
-
-**Coexistence mechanism**: Karpenter's `NodePool` taints every node it provisions with `karpenter.sh/provisioned=true:NoSchedule`. The Karpenter controller pod uses `nodeSelector: role=general` to pin itself onto the Managed Node Group, breaking the chicken-and-egg problem. Cluster Autoscaler ignores tainted nodes; Karpenter ignores the Managed Node Group.
-
-**AWS scaffolding** (provisioned by `infra/modules/eks` via the upstream `terraform-aws-modules/eks/aws//modules/karpenter` sub-module):
-
-- IAM role `<cluster>-karpenter-controller` (EKS Pod Identity) — controller permissions
-- IAM role `<cluster>-karpenter-node` + EC2 instance profile — assumed by provisioned instances
-- SQS queue `<cluster>-karpenter` — receives EC2 spot interruption / health events
-- EventBridge rules forwarding instance-state events into the queue
-
-The Helm chart and Kubernetes objects (`NodePool`, `EC2NodeClass`) live in `k8s/helm/karpenter/` and are installed by `scripts/install-helm-addons.sh` step 7. The `EC2NodeClass.role` field references the IAM role name above via envsubst (`${KARPENTER_NODE_IAM_ROLE_NAME}`), so renaming the cluster automatically renames the role and the EC2NodeClass stays in sync. See `k8s/helm/README.md` for the full env-var contract.
-
-## Troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `terraform apply` fails on EKS with "cluster does not exist" | aws-auth ConfigMap not yet propagated | Wait 60s, re-run `terraform apply` |
-| `kubectl` returns "Unauthorized" | kubeconfig points at the wrong context | Re-run `aws eks update-kubeconfig --name max-weather --region us-east-1` |
-| Pods stuck in `ImagePullBackOff` | ECR image not pushed, or node IAM lacks `ecr:GetAuthorizationToken` | Run `make app-build-push`; verify the node group IAM role attaches `AmazonEC2ContainerRegistryReadOnly` |
-| API Gateway returns 401 | JWT expired (1h TTL) or scope missing | Re-run `make issue-token`; verify scope `weather-api/read` in JWT payload |
-| API Gateway returns 502 | VPC Link target group unhealthy | Verify NLB targets are healthy: `aws elbv2 describe-target-health --target-group-arn <arn>` |
-| HPA not scaling under load | Open-Meteo upstream is caching, so pod CPU stays low | Run `bash scripts/force-scale-demo.sh` to demonstrate scaling wiring |
-| `terraform destroy` hangs on subnet deletion | Orphaned ENI from NLB or Lambda | Wait 5 minutes for ENI cleanup, then re-run; or use `make cloud-nuke-dry` to identify |
-| Newman exits non-zero with "ECONNREFUSED" | `invoke_url` not yet propagated, or wrong stage | Confirm the API Gateway stage is deployed: `aws apigatewayv2 get-stages --api-id <id>` |
+The Lambda authorizer (`infra/envs/poc/lambdas/authorizer/src/index.js`) verifies HS256 signature + scope, fetching the shared secret from Secrets Manager (cached per Lambda container lifetime).
 
 ## Teardown
-
-Single command, ordered to avoid leaving orphans:
 
 ```bash
 make teardown
 ```
 
-This runs `scripts/teardown.sh` which executes 10 phases in order:
-
-1. Confirms intent (operator must type `destroy max-weather`).
-2. `kubectl delete -k k8s/overlays/{staging,prod}` to remove ingress (triggers NLB cleanup).
-3. Drains Karpenter-provisioned nodes by deleting `NodePool`/`EC2NodeClass`/`NodeClaim` so Karpenter terminates EC2 before its IAM role disappears.
-4. Sleeps 60s for AWS Load Balancer Controller to delete target groups.
-5. `helm uninstall` for all 8 releases: ingress-nginx, AWS LB Controller, Cluster Autoscaler, Fluent Bit, External Secrets, Metrics Server, Jenkins, Karpenter (Karpenter last, after its workloads drain).
-6. `kubectl delete ns` for application and system namespaces.
-7. Prompts for manual API Gateway deletion (it was created out-of-band per `docs/api-gateway-runbook.md`).
-8. `terraform destroy -auto-approve` in `infra/envs/poc` (destroys EKS, Karpenter SQS/IAM, VPC, etc.).
-9. Optional: cloud-nuke dry-run to surface any orphaned resources.
-10. Prints elapsed time and savings.
-
-For state-backend cleanup (rare):
-
-```bash
-cd infra/bootstrap && terraform destroy -auto-approve
-```
-
-To verify zero remaining resources tagged with `Project=max-weather`:
-
-```bash
-aws resourcegroupstaggingapi get-resources \
-  --tag-filters Key=Project,Values=max-weather \
-  --region us-east-1 \
-  --query 'ResourceTagMappingList[].ResourceARN' --output text
-```
+Runs `scripts/teardown.sh` — 10 ordered phases: kubectl delete → Karpenter drain → helm uninstall → terraform destroy. Full phase detail in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Security Notes
 
-- **No secrets in Git.** All secrets (JWT shared secret, third-party API keys) live in AWS Secrets Manager and are mounted into pods via External Secrets Operator. The Postman environment template ships with empty secret fields.
-- **EKS Pod Identity everywhere.** Workload pods (Jenkins, Cluster Autoscaler, AWS LB Controller, Fluent Bit, External Secrets, Karpenter) assume IAM roles via EKS Pod Identity associations (trust principal `pods.eks.amazonaws.com`) — no node-level credentials shared across pods, no OIDC ServiceAccount annotation. The `iam` module also exposes `irsa_roles` for legacy OIDC-trust workloads when needed.
-- **Least-privilege IAM.** Each module owns its own IAM role with policies scoped to the resources it manages.
-- **Network isolation (POC trade-off).** This POC places worker nodes in **public subnets** (each gets a public IPv4) so that ECR / Open-Meteo egress works without a NAT Gateway. Inbound exposure is contained by Security Groups (SSH never opened publicly; the EKS API endpoint is locked to `var.allowed_cidrs`; the ingress-nginx NLB is the only intentionally public entry point and is itself fronted by API Gateway + the HS256 Lambda authorizer). For production, switch to private subnets + NAT Gateway (or VPC endpoints for ECR/Logs/STS) and flip the ingress-nginx Service annotation back to `internal`. The networking module ships both `kubernetes.io/role/elb` and `kubernetes.io/role/internal-elb` tags so the production overlay can place internal NLBs without re-tagging.
-- **NetworkPolicies.** `weather-api` pods accept ingress only from `ingress-nginx` and egress only to DNS and Open-Meteo (no Cognito JWKS; auth is Lambda-side).
-- **JWT verified with cached secret.** The Lambda authorizer fetches the HS256 shared secret from Secrets Manager once per container lifetime; HS256 verification is fully local thereafter.
-- **Image scanning.** ECR repositories have scan-on-push enabled. The Jenkins pipeline fails on `HIGH`/`CRITICAL` findings.
-- **Sanitized outputs.** `scripts/sanitize-outputs.sh` strips `sensitive=true` Terraform outputs and redacts AWS account IDs / JWT-like strings before any `terraform output` artifact is committed to evidence.
-
-## Out of Scope
-
-- Multi-region deployment (single `us-east-1`)
-- Production-grade WAF and DDoS protection (Shield Advanced)
-- Custom DNS / TLS via Route53 + ACM (the API uses the default `*.execute-api` domain)
-- ArgoCD / GitOps continuous deployment (Jenkins push-style is used)
-- Cost anomaly detection / budgets (operator runs `make teardown` instead)
-- Service mesh (Istio/Linkerd) — not needed at one-service scale
+- No secrets in Git — all in Secrets Manager, mounted via External Secrets Operator
+- EKS Pod Identity for all workloads (jenkins, cluster-autoscaler, fluent-bit, external-secrets, karpenter)
+- Least-privilege IAM per Terraform module
+- NetworkPolicies: weather-api accepts ingress only from ingress-nginx
+- Public-subnet topology (POC trade-off — no NAT Gateway); inbound contained by SGs + API GW + Lambda authorizer
+- ECR scan-on-push; Jenkins fails on HIGH/CRITICAL findings
 
 ## License
 
-This repository is submitted as an assessment artifact. All third-party libraries
-retain their original licenses (MIT for Node.js dependencies, Apache 2.0 for the
-AWS Load Balancer Controller, etc.). The Open-Meteo API is consumed under their
-free-tier terms.
+Assessment artifact. Third-party libraries retain original licenses.

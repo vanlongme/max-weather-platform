@@ -15,7 +15,7 @@ Generic AWS Lambda deployment module. Packages source code from disk using Terra
 Before running `terraform plan` or `terraform apply`, install production dependencies:
 
 ```bash
-cd lambda-authorizer && npm ci --omit=dev
+cd infra/envs/poc/lambdas/authorizer && npm ci --omit=dev
 ```
 
 Or use the Makefile target:
@@ -37,13 +37,13 @@ module "lambda" {
 
   functions = {
     authorizer = {
-      source_dir      = "${path.root}/../../lambda-authorizer"
+      source_dir      = "${path.root}/lambdas/authorizer"
       handler         = "src/index.handler"
       runtime         = "nodejs22.x"
       memory_size     = 128
       timeout         = 5
       role_arn        = module.iam.lambda_authorizer_role_arn
-      npm_install_dir = "${path.root}/../../lambda-authorizer"
+      npm_install_dir = "${path.root}/lambdas/authorizer"
       environment = {
         AUTHORIZER_SECRET_ARN = module.secrets.authorizer_jwt_secret_arn
         REQUIRED_SCOPE        = "weather-api/read"

@@ -20,9 +20,9 @@ patches:
     target:
       kind: ExternalSecret
       name: weather-app-config
-  - path: hpa-patch.yaml
+  - path: scaledobject-patch.yaml
     target:
-      kind: HorizontalPodAutoscaler
+      kind: ScaledObject
       name: weather-api
   - path: deployment-replicas-patch.yaml
     target:

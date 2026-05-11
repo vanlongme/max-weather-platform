@@ -59,11 +59,6 @@ output "fluent_bit_role_arn" {
   value       = try(aws_iam_role.pod_identity["fluent-bit"].arn, "")
 }
 
-output "aws_lb_controller_role_arn" {
-  description = "Convenience accessor for the AWS Load Balancer Controller Pod Identity role ARN."
-  value       = try(aws_iam_role.pod_identity["aws-lb-controller"].arn, "")
-}
-
 output "external_secrets_role_arn" {
   description = "Convenience accessor for the External Secrets Pod Identity role ARN."
   value       = try(aws_iam_role.pod_identity["external-secrets"].arn, "")

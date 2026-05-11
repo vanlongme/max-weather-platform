@@ -73,11 +73,6 @@ output "fluent_bit_role_arn" {
   value       = module.iam.fluent_bit_role_arn
 }
 
-output "aws_lb_controller_role_arn" {
-  description = "Pod Identity role ARN for the AWS Load Balancer Controller Helm chart (informational)."
-  value       = module.iam.aws_lb_controller_role_arn
-}
-
 output "external_secrets_role_arn" {
   description = "Pod Identity role ARN for the External Secrets Operator Helm chart (informational)."
   value       = module.iam.external_secrets_role_arn

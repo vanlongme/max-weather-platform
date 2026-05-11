@@ -90,7 +90,7 @@ variable "eks_access_entries" {
 }
 
 variable "pod_identity_roles" {
-  description = "Map of EKS Pod Identity roles to create via the iam module (pods.eks.amazonaws.com trust). Null (default) ships the five built-in roles: jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets. Override to add custom roles (replaces the defaults — re-declare any built-ins you want kept). The iam module emits role ARNs + bindings; the eks module creates the actual aws_eks_pod_identity_association resources."
+  description = "Map of EKS Pod Identity roles to create via the iam module (pods.eks.amazonaws.com trust). Null (default) ships the five built-in roles: jenkins, cluster-autoscaler, fluent-bit, external-secrets. Override to add custom roles (replaces the defaults — re-declare any built-ins you want kept). The iam module emits role ARNs + bindings; the eks module creates the actual aws_eks_pod_identity_association resources."
   type = map(object({
     namespace        = string
     service_account  = string

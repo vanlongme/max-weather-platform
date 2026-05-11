@@ -142,7 +142,6 @@ allowed_cidrs = ["YOUR_PUBLIC_IP/32"]
 # #   jenkins            = { namespace = "jenkins",          service_account = "jenkins",                      policy_json = "..." }
 # #   cluster-autoscaler = { namespace = "kube-system",      service_account = "cluster-autoscaler",           policy_json = "..." }
 # #   fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = "..." }
-# #   aws-lb-controller  = { namespace = "kube-system",      service_account = "aws-load-balancer-controller", policy_json = "..." }
 # #   external-secrets   = { namespace = "external-secrets", service_account = "external-secrets",             policy_json = "..." }
 # # }
 
@@ -175,20 +174,20 @@ allowed_cidrs = ["YOUR_PUBLIC_IP/32"]
 # # Lambda functions — required to deploy the HS256 authorizer.
 # #
 # # IMPORTANT: Run `make lambda-deps` before `terraform plan` or `terraform apply`
-# # so that lambda-authorizer/node_modules/ exists for archive_file packaging.
+# # so that infra/envs/poc/lambdas/authorizer/node_modules/ exists for archive_file packaging.
 # #
 # # role_arn and secrets ARN are interpolated at apply time from sibling modules;
 # # copy the block below verbatim — no substitution required in the tfvars file.
 # ###############################################################################
 # lambda_functions = {
 #   authorizer = {
-#     source_dir      = "../../lambda-authorizer"
+#     source_dir      = "./lambdas/authorizer"
 #     handler         = "src/index.handler"
 #     runtime         = "nodejs22.x"
 #     memory_size     = 128
 #     timeout         = 5
 #     role_arn        = "__LAMBDA_AUTHORIZER_ROLE_ARN__"   # set by iam module; see below
-#     npm_install_dir = "../../lambda-authorizer"
+#     npm_install_dir = "./lambdas/authorizer"
 #     environment = {
 #       AUTHORIZER_SECRET_ARN = "__AUTHORIZER_JWT_SECRET_ARN__"  # set by secrets module; see below
 #       REQUIRED_SCOPE        = "weather-api/read"

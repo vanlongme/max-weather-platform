@@ -25,3 +25,12 @@ coverage/
 *.tfvars
 .sisyphus/
 .agents/
+
+# Reviewer/agent artifacts — never tracked
+AGENTS.md
+**/AGENTS.md
+*.pdf
+docs/evidence/
+tfplan
+tfplan.*
+terraform.tfstate

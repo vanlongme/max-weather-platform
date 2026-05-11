@@ -8,7 +8,7 @@ stay empty:
 |------|-----------------|----------|---------|
 | `service_roles` | AWS service principal (e.g. `lambda.amazonaws.com`, `ec2.amazonaws.com`) | Lambda execution roles, EC2 instance roles, ECS task roles | `{}` |
 | `irsa_roles` | OIDC web-identity (EKS) | Legacy IRSA workloads | `{}` (skipped unless `oidc_provider_arn` + `oidc_provider_url` are passed) |
-| `pod_identity_roles` | `pods.eks.amazonaws.com` (EKS Pod Identity) | All EKS workloads on 1.30+ | 5 built-in workload roles (jenkins, cluster-autoscaler, fluent-bit, aws-lb-controller, external-secrets) |
+| `pod_identity_roles` | `pods.eks.amazonaws.com` (EKS Pod Identity) | All EKS workloads on 1.30+ | 4 built-in workload roles (jenkins, cluster-autoscaler, fluent-bit, external-secrets) |
 
 **Pod Identity associations are created by the `eks` module**, not here. This
 module emits an `aws_iam_role` per pod_identity_roles entry plus the
@@ -25,7 +25,6 @@ With `var.name = "poc-max-weather"` and the default `role_name_suffix = "-role"`
 | `jenkins`             | `poc-max-weather-jenkins-role`                  |
 | `cluster-autoscaler`  | `poc-max-weather-cluster-autoscaler-role`       |
 | `fluent-bit`          | `poc-max-weather-fluent-bit-role`               |
-| `aws-lb-controller`   | `poc-max-weather-aws-lb-controller-role`        |
 | `external-secrets`    | `poc-max-weather-external-secrets-role`         |
 
 Set the per-entry `role_name_suffix` field to decouple the role's middle
@@ -120,7 +119,7 @@ without baking partition/region/account into the policy JSON.
 | `pod_identity_role_arns` / `pod_identity_role_names` | Maps keyed by `pod_identity_roles` map key. |
 | `pod_identity_role_bindings` | Map of `{namespace, service_account, role_arn}` per Pod Identity role — pass directly to `module.eks.pod_identity_associations`. |
 | `jenkins_role_arn` / `jenkins_role_name` | Convenience accessors for the built-in Jenkins Pod Identity role. |
-| `cluster_autoscaler_role_arn` / `fluent_bit_role_arn` / `aws_lb_controller_role_arn` / `external_secrets_role_arn` | Convenience accessors for the other four built-in Pod Identity roles. |
+| `cluster_autoscaler_role_arn` / `fluent_bit_role_arn` / `external_secrets_role_arn` | Convenience accessors for the other three built-in Pod Identity roles. |
 
 ## Requirements
 
