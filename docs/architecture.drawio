@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="sisyphus">
   <diagram id="max-weather-arch" name="Max Weather AWS Architecture">
-    <mxGraphModel dx="2558" dy="1383" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
+    <mxGraphModel dx="1062" dy="1605" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1600" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -31,10 +31,7 @@
         <mxCell id="vpc" parent="aws" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;" value="VPC" vertex="1">
           <mxGeometry height="800" width="1500" x="360" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="vpc_link" parent="vpc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" value="VPC Link" vertex="1">
-          <mxGeometry height="50" width="120" x="20" y="140" as="geometry" />
-        </mxCell>
-        <mxCell id="nlb" parent="vpc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" value="NLB (internal)" vertex="1">
+        <mxCell id="nlb" parent="vpc" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;" value="Network Loadbalancer" vertex="1">
           <mxGeometry height="50" width="140" x="200" y="140" as="geometry" />
         </mxCell>
         <mxCell id="eks" parent="vpc" style="swimlane;startSize=30;fillColor=#f0f0f0;strokeColor=#999999;fontStyle=1;fontSize=13;" value="EKS Cluster" vertex="1">
@@ -73,8 +70,10 @@
         <mxCell id="e7" edge="1" parent="eks" source="nginx" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="weather_api" value="routes">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e10" edge="1" parent="eks" source="metrics_server" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="keda" value="cpu metrics">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="e10" edge="1" parent="eks" source="metrics_server" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="keda" value="cpu/memory metrics">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="e11" edge="1" parent="eks" source="keda" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="weather_api" value="scales">
           <mxGeometry relative="1" as="geometry" />
@@ -99,9 +98,6 @@
         <mxCell id="l8L81h26dyYiYlLvlEAF-3" parent="eks" style="rounded=0;whiteSpace=wrap;html=1;" value="External Secret" vertex="1">
           <mxGeometry height="60" width="120" x="880" y="500" as="geometry" />
         </mxCell>
-        <mxCell id="e5" edge="1" parent="vpc" source="vpc_link" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="nlb" value="routes to">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
         <mxCell id="e6" edge="1" parent="vpc" source="nlb" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="nginx" value="targets">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -115,8 +111,10 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e4" edge="1" parent="aws" source="apigw" style="edgeStyle=orthogonalEdgeStyle;html=1;" target="vpc_link" value="HTTP proxy">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="e4" edge="1" parent="aws" source="apigw" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0;entryY=0.6;entryDx=0;entryDy=0;entryPerimeter=0;" target="nlb" value="HTTP proxy">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="190" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="cloudwatch" parent="aws" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;" value="CloudWatch" vertex="1">
           <mxGeometry height="50" width="140" x="1760" y="850" as="geometry" />
