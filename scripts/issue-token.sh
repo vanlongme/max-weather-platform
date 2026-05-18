@@ -11,7 +11,7 @@
 #
 # Optional env vars:
 #   JWT_ISSUER    — iss claim (overrides --env default)
-#   JWT_SCOPE     — scope claim (default: weather-api/read)
+#   JWT_SCOPE     — scope claim (default: weather:read)
 #   JWT_SUB       — sub claim (default: max-weather-operator)
 #   JWT_EXPIRY    — token TTL in seconds (default: 3600)
 #   STAGING_DIR   — path to infra/envs/poc (default: infra/envs/poc)
@@ -60,7 +60,7 @@ fi
 
 STAGING_DIR="${STAGING_DIR:-infra/envs/poc}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
-JWT_SCOPE="${JWT_SCOPE:-weather-api/read}"
+JWT_SCOPE="${JWT_SCOPE:-weather:read}"
 JWT_SUB="${JWT_SUB:-max-weather-operator}"
 JWT_EXPIRY="${JWT_EXPIRY:-3600}"
 
