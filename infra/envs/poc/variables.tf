@@ -213,7 +213,7 @@ variable "secrets" {
     app_config = {
       name          = "/__CLUSTER_NAME__/app/config"
       description   = "weather-api application runtime configuration."
-      initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\",\"PORT\":\"3000\"}"
+      initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\"}"
     }
     authorizer_jwt_secret_prod = {
       name                    = "__CLUSTER_NAME__-authorizer-jwt-secret-prod"
