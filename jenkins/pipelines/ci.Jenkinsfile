@@ -119,7 +119,7 @@ spec:
           cpu: 1000m
           memory: 2Gi
     - name: syft
-      image: anchore/syft:latest
+      image: anchore/syft:v1.44.0-debug
       command: ["sleep"]
       args: ["infinity"]
       tty: true
