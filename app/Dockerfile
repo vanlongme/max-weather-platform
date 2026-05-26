@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG BASE_IMAGE=cgr.dev/chainguard/node:latest
+ARG BASE_IMAGE=cgr.dev/chainguard/node:latest-dev
 ARG BUILDER_IMAGE=cgr.dev/chainguard/node:latest-dev
 
 FROM ${BUILDER_IMAGE} AS deps
