@@ -14,42 +14,29 @@ locals {
     ManagedBy   = "terraform"
   }
 
-  # CSI controller Pod Identity role ARNs sourced from module.iam outputs.
-  # Terraform variable defaults cannot reference module outputs, so the CSI
-  # addon entries in var.cluster_addons carry an empty role_arn placeholder
-  # and we patch them here at the module.eks call site.
-  csi_role_arns = {
-    aws-ebs-csi-driver = module.iam.ebs_csi_controller_role_arn
-    aws-efs-csi-driver = module.iam.efs_csi_controller_role_arn
-  }
-
-  cluster_addons_resolved = {
-    for k, v in var.cluster_addons : k => (
-      contains(keys(local.csi_role_arns), k)
-      ? merge(v, {
-        pod_identity_association = [
-          for assoc in v.pod_identity_association : merge(assoc, {
-            role_arn = local.csi_role_arns[k]
-          })
-        ]
-      })
-      : v
-    )
-  }
-
-  # POC: jenkins-agent is granted cluster-admin via EKS access entry so the
-  # deploy pipeline can create namespaces and reconcile CRDs (KEDA
-  # ScaledObject, external-secrets ExternalSecret) without bespoke RBAC.
-  # Production must replace this with least-privilege per-namespace RBAC.
+  # POC: jenkins-agent is granted namespaced admin via EKS access entry so the
+  # deploy pipeline can reconcile workloads + CRDs (KEDA ScaledObject,
+  # external-secrets ExternalSecret) across the four operational namespaces.
+  # Production must replace this with least-privilege RBAC.
   eks_access_entries_effective = merge(
     {
+      operator = {
+        principal_arn = data.aws_caller_identity.current.arn
+        policy_associations = {
+          admin = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
+        }
+      }
       jenkins-agent = {
         principal_arn = module.iam.pod_identity_role_arns["jenkins-agent"]
         policy_associations = {
           admin = {
             policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
             access_scope = {
-              type = "cluster"
+              type       = "namespace"
+              namespaces = ["default", "staging", "prod", "jenkins"]
             }
           }
         }

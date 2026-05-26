@@ -84,23 +84,19 @@ module "iam" {
 module "eks" {
   source = "../../modules/eks"
 
-  name                   = local.master_prefix
-  cluster_version        = var.eks_cluster_version
-  vpc_id                 = module.networking.vpc_id
-  subnet_ids             = module.networking.public_subnet_ids
-  allowed_cidrs          = var.allowed_cidrs
-  operator_principal_arn = data.aws_caller_identity.current.arn
-  jenkins_role_arn       = module.iam.jenkins_role_arn
+  name            = local.master_prefix
+  cluster_version = var.eks_cluster_version
+  vpc_id          = module.networking.vpc_id
+  subnet_ids      = module.networking.public_subnet_ids
+  allowed_cidrs   = var.allowed_cidrs
 
   eks_managed_node_groups         = var.eks_managed_node_groups
   eks_managed_node_group_defaults = var.eks_managed_node_group_defaults
-  cluster_addons                  = local.cluster_addons_resolved
+  cluster_addons                  = var.cluster_addons
   access_entries                  = local.eks_access_entries_effective
   pod_identity_associations       = module.iam.pod_identity_role_bindings
 
   tags = local.common_tags
-
-  depends_on = [module.cloudwatch, module.networking]
 }
 
 module "eks_self_managed_addons" {

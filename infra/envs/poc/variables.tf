@@ -76,29 +76,15 @@ variable "eks_managed_node_group_defaults" {
 }
 
 variable "cluster_addons" {
-  description = "EKS cluster add-ons. Default ships the full set: CoreDNS, kube-proxy, VPC CNI, EKS Pod Identity Agent, aws-ebs-csi-driver (with defaultStorageClass ebs-csi-default-sc), and aws-efs-csi-driver. CSI drivers' pod_identity_association.role_arn is empty here (default cannot reference module outputs); main.tf patches role_arns from module.iam at the module.eks call site."
+  description = "EKS cluster add-ons surfaced as `aws_eks_addon` resources by the eks module. Default ships CoreDNS, kube-proxy, VPC CNI, and EKS Pod Identity Agent. EBS/EFS CSI drivers are owned by the eks module itself (enable_ebs_csi_addon / enable_efs_csi_addon) — do not declare them here."
   type        = any
   default = {
     coredns = {
       configuration_values = "{\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}"
     }
-    kube-proxy             = {}
-    vpc-cni                = { before_compute = true }
-    eks-pod-identity-agent = { before_compute = true }
-    aws-ebs-csi-driver = {
-      pod_identity_association = [{
-        role_arn        = ""
-        service_account = "ebs-csi-controller-sa"
-      }]
-      configuration_values = "{\"defaultStorageClass\":{\"enabled\":true},\"controller\":{\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}}"
-    }
-    aws-efs-csi-driver = {
-      pod_identity_association = [{
-        role_arn        = ""
-        service_account = "efs-csi-controller-sa"
-      }]
-      configuration_values = "{\"controller\":{\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}}"
-    }
+    kube-proxy             = { depends_on_node_group = true }
+    vpc-cni                = { depends_on_node_group = false }
+    eks-pod-identity-agent = { depends_on_node_group = true }
   }
 }
 
@@ -109,14 +95,225 @@ variable "eks_access_entries" {
 }
 
 variable "pod_identity_roles" {
-  description = "Map of EKS Pod Identity roles to create via the iam module (pods.eks.amazonaws.com trust). Null (default) ships the five built-in roles: jenkins, cluster-autoscaler, fluent-bit, external-secrets. Override to add custom roles (replaces the defaults — re-declare any built-ins you want kept). The iam module emits role ARNs + bindings; the eks module creates the actual aws_eks_pod_identity_association resources."
+  description = "Map of EKS Pod Identity roles to create via the iam module (pods.eks.amazonaws.com trust). Default ships the five non-CSI workload roles: jenkins, jenkins-agent, cluster-autoscaler, fluent-bit, external-secrets. CSI controller roles (ebs-csi-controller, efs-csi-controller) are owned by the eks module itself. Override to add custom roles (replaces the defaults — re-declare any built-ins you want kept)."
   type = map(object({
-    namespace        = string
-    service_account  = string
-    policy_json      = string
-    role_name_suffix = optional(string)
+    namespace           = string
+    service_account     = string
+    policy_json         = string
+    role_name_suffix    = optional(string)
+    managed_policy_arns = optional(list(string), [])
   }))
-  default = null
+  default = {
+    jenkins = {
+      namespace        = "jenkins"
+      service_account  = "jenkins"
+      role_name_suffix = "jenkins"
+      policy_json      = <<-EOT
+         {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Sid": "ECRAccess",
+               "Effect": "Allow",
+               "Action": [
+                 "ecr:GetAuthorizationToken",
+                 "ecr:BatchCheckLayerAvailability",
+                 "ecr:GetDownloadUrlForLayer",
+                 "ecr:BatchGetImage",
+                 "ecr:PutImage",
+                 "ecr:InitiateLayerUpload",
+                 "ecr:UploadLayerPart",
+                 "ecr:CompleteLayerUpload",
+                 "ecr:DescribeRepositories",
+                 "ecr:DescribeImages",
+                 "ecr:ListImages"
+               ],
+               "Resource": "*"
+             },
+             {
+               "Sid": "EKSAccess",
+               "Effect": "Allow",
+               "Action": [
+                 "eks:DescribeCluster",
+                 "eks:ListClusters"
+               ],
+               "Resource": "*"
+             },
+             {
+               "Sid": "LambdaDeployAccess",
+               "Effect": "Allow",
+               "Action": [
+                 "lambda:UpdateFunctionCode",
+                 "lambda:GetFunction"
+               ],
+               "Resource": "arn:__AWS_PARTITION__:lambda:__AWS_REGION__:__AWS_ACCOUNT_ID__:function:__CLUSTER_NAME__-*"
+             },
+             {
+               "Sid": "CloudWatchLogs",
+               "Effect": "Allow",
+               "Action": [
+                 "logs:CreateLogGroup",
+                 "logs:CreateLogStream",
+                 "logs:PutLogEvents",
+                 "logs:DescribeLogGroups"
+               ],
+               "Resource": "*"
+             }
+           ]
+         }
+         EOT
+    }
+    jenkins-agent = {
+      namespace        = "jenkins"
+      service_account  = "jenkins-agent"
+      role_name_suffix = "jenkins-agent"
+      policy_json      = <<-EOT
+         {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Sid": "ECRAccess",
+               "Effect": "Allow",
+               "Action": [
+                 "ecr:GetAuthorizationToken",
+                 "ecr:BatchCheckLayerAvailability",
+                 "ecr:GetDownloadUrlForLayer",
+                 "ecr:BatchGetImage",
+                 "ecr:PutImage",
+                 "ecr:InitiateLayerUpload",
+                 "ecr:UploadLayerPart",
+                 "ecr:CompleteLayerUpload",
+                 "ecr:DescribeRepositories",
+                 "ecr:DescribeImages",
+                 "ecr:ListImages"
+               ],
+               "Resource": "*"
+             },
+             {
+               "Sid": "EKSAccess",
+               "Effect": "Allow",
+               "Action": [
+                 "eks:DescribeCluster",
+                 "eks:ListClusters"
+               ],
+               "Resource": "*"
+             },
+             {
+               "Sid": "LambdaDeployAccess",
+               "Effect": "Allow",
+               "Action": [
+                 "lambda:UpdateFunctionCode",
+                 "lambda:GetFunction"
+               ],
+               "Resource": "arn:__AWS_PARTITION__:lambda:__AWS_REGION__:__AWS_ACCOUNT_ID__:function:__CLUSTER_NAME__-*"
+             },
+             {
+               "Sid": "CloudWatchLogs",
+               "Effect": "Allow",
+               "Action": [
+                 "logs:CreateLogGroup",
+                 "logs:CreateLogStream",
+                 "logs:PutLogEvents",
+                 "logs:DescribeLogGroups"
+               ],
+               "Resource": "*"
+             }
+           ]
+         }
+         EOT
+    }
+    cluster-autoscaler = {
+      namespace        = "kube-system"
+      service_account  = "cluster-autoscaler"
+      role_name_suffix = "cluster-autoscaler"
+      policy_json      = <<-EOT
+         {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Effect": "Allow",
+               "Action": [
+                 "autoscaling:DescribeAutoScalingGroups",
+                 "autoscaling:DescribeAutoScalingInstances",
+                 "autoscaling:DescribeLaunchConfigurations",
+                 "autoscaling:DescribeScalingActivities",
+                 "autoscaling:DescribeTags",
+                 "ec2:DescribeInstanceTypes",
+                 "ec2:DescribeLaunchTemplateVersions",
+                 "ec2:DescribeImages",
+                 "ec2:GetInstanceTypesFromInstanceRequirements",
+                 "eks:DescribeNodegroup"
+               ],
+               "Resource": "*"
+             },
+             {
+               "Effect": "Allow",
+               "Action": [
+                 "autoscaling:SetDesiredCapacity",
+                 "autoscaling:TerminateInstanceInAutoScalingGroup"
+               ],
+               "Resource": "*"
+             }
+           ]
+         }
+         EOT
+    }
+    fluent-bit = {
+      namespace        = "amazon-cloudwatch"
+      service_account  = "fluent-bit"
+      role_name_suffix = "fluent-bit"
+      policy_json      = <<-EOT
+         {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Effect": "Allow",
+               "Action": [
+                 "logs:CreateLogGroup",
+                 "logs:CreateLogStream",
+                 "logs:PutLogEvents",
+                 "logs:DescribeLogGroups",
+                 "logs:DescribeLogStreams",
+                 "logs:PutRetentionPolicy"
+               ],
+               "Resource": "*"
+             }
+           ]
+         }
+         EOT
+    }
+    external-secrets = {
+      namespace        = "external-secrets"
+      service_account  = "external-secrets"
+      role_name_suffix = "external-secrets"
+      policy_json      = <<-EOT
+         {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Effect": "Allow",
+               "Action": [
+                 "secretsmanager:GetSecretValue",
+                 "secretsmanager:DescribeSecret",
+                 "secretsmanager:ListSecrets"
+               ],
+               "Resource": "*"
+             },
+             {
+               "Effect": "Allow",
+               "Action": [
+                 "ssm:GetParameter",
+                 "ssm:GetParameters",
+                 "ssm:GetParametersByPath",
+                 "ssm:DescribeParameters"
+               ],
+               "Resource": "*"
+             }
+           ]
+         }
+         EOT
+    }
+  }
 }
 
 variable "iam_service_roles" {
