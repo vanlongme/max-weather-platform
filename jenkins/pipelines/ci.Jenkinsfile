@@ -245,7 +245,8 @@ spec:
           steps {
             container('semgrep') {
               script {
-                def threshold = securityPolicy.thresholdFor('sast') ?: 'ERROR'
+                def threshold = securityPolicy.thresholdFor('sast')
+                def sevFlags = threshold.split(',').collect { "--severity ${it.trim()}" }.join(' ')
                 sh """
                   set +e
                   semgrep ci \
@@ -255,8 +256,7 @@ spec:
                     --config p/javascript \
                     --json \
                     --output semgrep-report.json \
-                    --severity ERROR \
-                    --severity WARNING \
+                    ${sevFlags} \
                     app/src/
                   SEMGREP_EXIT=\$?
                   set -e
@@ -285,14 +285,14 @@ spec:
           steps {
             container('trivy') {
               script {
-                def threshold = securityPolicy.thresholdFor('sca_fs') ?: 'HIGH'
-                def allowlist = securityPolicy.allowlistFor('sca_fs') ?: '.trivyignore'
+                def threshold = securityPolicy.thresholdFor('sca_fs')
+                def allowlist = securityPolicy.allowlistFor('sca_fs')
                 sh """
                   set +e
                   trivy fs \
                     --no-progress \
                     --scanners vuln,secret \
-                    --severity ${threshold},CRITICAL \
+                    --severity ${threshold} \
                     --ignore-unfixed \
                     --format json \
                     --output trivy-fs-report.json \
@@ -325,7 +325,7 @@ spec:
           steps {
             container('node') {
               script {
-                def threshold = securityPolicy.thresholdFor('sca_npm') ?: 'high'
+                def threshold = securityPolicy.thresholdFor('sca_npm')
                 sh """
                   set +e
                   cd app
@@ -397,14 +397,14 @@ spec:
           steps {
             container('trivy') {
               script {
-                def threshold = securityPolicy.thresholdFor('container') ?: 'HIGH'
-                def allowlist = securityPolicy.allowlistFor('container') ?: '.trivyignore'
+                def threshold = securityPolicy.thresholdFor('container')
+                def allowlist = securityPolicy.allowlistFor('container')
                 sh """
                   set +e
                   trivy image \
                     --no-progress \
                     --scanners vuln \
-                    --severity ${threshold},CRITICAL \
+                    --severity ${threshold} \
                     --ignore-unfixed \
                     --format json \
                     --output trivy-image-report.json \
@@ -636,14 +636,14 @@ spec:
           steps {
             container('trivy') {
               script {
-                def threshold = securityPolicy.thresholdFor('container') ?: 'HIGH'
-                def allowlist = securityPolicy.allowlistFor('container') ?: '.trivyignore'
+                def threshold = securityPolicy.thresholdFor('container')
+                def allowlist = securityPolicy.allowlistFor('container')
                 sh """
                   set +e
                   trivy image \
                     --no-progress \
                     --scanners vuln \
-                    --severity ${threshold},CRITICAL \
+                    --severity ${threshold} \
                     --ignore-unfixed \
                     --format json \
                     --output trivy-drift-report.json \

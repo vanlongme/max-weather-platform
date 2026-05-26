@@ -31,7 +31,7 @@ scans:
   sast:
     tool: semgrep
     mode: advisory
-    severity_threshold: HIGH
+    severity_threshold: "ERROR,WARNING"
     rulesets:
       - p/nodejs
       - p/owasp-top-ten
@@ -40,7 +40,7 @@ scans:
   sca_fs:
     tool: trivy-fs
     mode: advisory
-    severity_threshold: HIGH
+    severity_threshold: "HIGH,CRITICAL"
     allowlist_file: .trivyignore
     ignore_unfixed: true
   sca_npm:
@@ -51,7 +51,7 @@ scans:
   container:
     tool: trivy-img
     mode: advisory
-    severity_threshold: HIGH
+    severity_threshold: "HIGH,CRITICAL"
     allowlist_file: .trivyignore
     ignore_unfixed: true
   dast:
