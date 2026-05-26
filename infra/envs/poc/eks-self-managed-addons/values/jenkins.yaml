@@ -75,6 +75,8 @@ controller:
     - blueocean:latest
     - job-dsl:latest
     - timestamper:latest
+    - pipeline-utility-steps:latest
+    - mask-passwords:latest
 
   installLatestPlugins: true
   installLatestSpecifiedPlugins: true
@@ -165,6 +167,23 @@ controller:
                               limits:
                                 cpu: 500m
                                 memory: 512Mi
+      # Shared Library registration — exposes `max-weather-shared` (from
+      # jenkins/vars/ of the platform repo) to all pipelines via
+      # `@Library('max-weather-shared') _`. `implicit: false` keeps the
+      # import explicit per Jenkinsfile.
+      security-library: |
+        unclassified:
+          globalLibraries:
+            libraries:
+              - name: "max-weather-shared"
+                defaultVersion: "main"
+                implicit: false
+                retriever:
+                  modernSCM:
+                    scm:
+                      git:
+                        remote: "https://github.com/vanlongme/max-weather-platform.git"
+                        credentialsId: ""
 
   # Disable the built-in test of cluster connectivity at install time —
   # it requires the Jenkins SA to already exist, which is created in
@@ -195,6 +214,16 @@ controller:
       operator: Equal
       value: jenkins
       effect: NoSchedule
+
+  additionalVolumeClaims:
+    - metadata:
+        name: trivy-db-cache
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ebs-csi-default-sc
+        resources:
+          requests:
+            storage: 8Gi
 
 agent:
   # Static agent pool disabled — kubernetes plugin spins ephemeral pods
