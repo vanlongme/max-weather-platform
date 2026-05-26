@@ -105,7 +105,16 @@ Evidence (HPA timeline JSON, k6 summaries) is captured under `docs/evidence/<sui
 make teardown
 ```
 
-Runs `scripts/teardown.sh` — single-shot force teardown via **[cloud-nuke](https://github.com/gruntwork-io/cloud-nuke)**: empty ECR repos → force-delete Secrets Manager secrets (no recovery window) → `./cloud-nuke_linux_amd64 aws --config .cloud-nuke.yaml --force` sweeps every AWS resource matching `*max-weather*` (EKS, VPC, Lambda, NLB, tfstate S3 + tflock DynamoDB). No ordered kubectl/helm drain — cloud-nuke yanks everything in one pass. Account returns to zero in ~5 min.
+Runs `scripts/teardown.sh` — **ordered teardown** with clean Terraform destroy first, then cloud-nuke as final orphan sweep:
+
+1. Empty ECR repos (so `aws_ecr_repository` destroy succeeds)
+2. Force-delete Secrets Manager secrets (no recovery window)
+3. `kubectl` pre-drain — delete LoadBalancer Services + Ingresses so AWS LB controller releases NLBs/ENIs before VPC destroy
+4. `terraform destroy infra/envs/poc` — workload composition (EKS, VPC, Lambda, ECR, IAM)
+5. `terraform destroy infra/bootstrap` — tfstate S3 + tflock DynamoDB (`force_destroy=true` on the bucket)
+6. **[cloud-nuke](https://github.com/gruntwork-io/cloud-nuke)** orphan sweep — `./cloud-nuke_linux_amd64 aws --config .cloud-nuke.yaml --force` mops up anything Terraform missed (Karpenter-provisioned EC2, dangling ENIs, security-group deps)
+
+Preserves Terraform state integrity through destroy; cloud-nuke only handles orphans. Account returns to zero in ~10-15 min.
 
 ## License
 
