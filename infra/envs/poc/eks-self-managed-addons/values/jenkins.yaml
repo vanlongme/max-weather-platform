@@ -122,10 +122,9 @@ controller:
       # explicitly declares the cloud + a default pod template used by
       # `agent { kubernetes { yaml ... } }` blocks in the Jenkinsfiles.
       #
-      # Build pods schedule onto Karpenter-provisioned nodes only:
-      #   nodeSelector: provisioner=karpenter
-      #   toleration:   karpenter.sh/provisioned=true:NoSchedule
-      # SA `jenkins-agent` is bound to its own Pod Identity role
+      # Build pods pin to the infra MNG (same nodes as the controller) so
+      # Karpenter workload nodes (private subnets) host only application
+      # workloads. SA `jenkins-agent` is bound to its own Pod Identity role
       # (infra/modules/iam — same policy as the controller).
       kubernetes-cloud: |
         jenkins:
@@ -147,16 +146,16 @@ controller:
                     label: "k8s-agent"
                     serviceAccount: "jenkins-agent"
                     idleMinutes: 1
-                    nodeSelector: "provisioner=karpenter"
+                    nodeSelector: "role=infra"
                     yamlMergeStrategy: "merge"
                     yaml: |
                       apiVersion: v1
                       kind: Pod
                       spec:
                         tolerations:
-                          - key: karpenter.sh/provisioned
+                          - key: role
                             operator: Equal
-                            value: "true"
+                            value: infra
                             effect: NoSchedule
                         containers:
                           - name: jnlp
