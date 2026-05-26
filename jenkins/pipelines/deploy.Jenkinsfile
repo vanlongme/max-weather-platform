@@ -124,7 +124,7 @@ spec:
       }
     }
 
-    stage('Update Kustomize Image + Deploy') {
+    stage('Deploy') {
       steps {
         container('kubectl') {
           sh '''
@@ -134,7 +134,6 @@ spec:
             kustomize edit set image weather-api=${APP_REPO}:${IMAGE_TAG}
             cd -
             kubectl apply -k k8s/overlays/${ENV}
-            kubectl rollout status deployment/weather-api -n weather-${ENV} --timeout=180s
           '''
         }
       }

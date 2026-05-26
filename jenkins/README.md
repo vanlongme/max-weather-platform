@@ -65,8 +65,7 @@ Developer pushes to main
         │     └── max-weather-deploy (staging):
         │           ├── Validate Params
         │           ├── Verify ECR Image Exists  (5 retries × 3s)
-        │           ├── Update Kustomize Image
-        │           ├── Deploy  (kubectl apply -k k8s/overlays/staging)
+        │           ├── Deploy  (kustomize edit set image + kubectl apply -k k8s/overlays/staging)
         │           ├── Smoke Test  (curl -H "Host: staging.max-weather.local" NLB/healthz, 30 retries)
         │           └── On failure: auto-rollback  (kubectl rollout undo, staging only)
         ├── Approve Prod Deploy  ← operator clicks "Promote" in Jenkins UI (24h timeout)
@@ -107,7 +106,7 @@ Developer pushes to main
 - **Trigger**: Called exclusively by `max-weather-ci` via `build job:` step
 - **Timeout**: 20 minutes
 - **Concurrency**: `disableConcurrentBuilds(abortPrevious: false)` — queues deploys, never cancels in-flight ones
-- **Stages**: Validate Params → Verify ECR Image Exists → Update Kustomize Image → Deploy → Smoke Test
+- **Stages**: Validate Params → Verify ECR Image Exists → Deploy → Smoke Test
 - **Rollback**: Staging only — `kubectl rollout undo deployment/weather-api -n weather-staging` on failure
 - **Log retention**: 20 builds
 
@@ -207,7 +206,7 @@ Credentials are stored in **AWS Secrets Manager**, synced into Kubernetes by **E
 | Seed job (`jenkins-job-dsl-seed`) not created after Terraform apply | JCasC parse error, or `job-dsl` plugin not installed yet | `kubectl logs -n jenkins statefulset/jenkins -c init`; verify `job-dsl:latest` in `controller.installPlugins`; confirm pod has fully restarted |
 | `max-weather-deploy` not triggered after staging succeeds | `build job:` step name mismatch, or downstream job not yet created | Verify the `max-weather-deploy` job exists in the Jenkins UI; check `ci.Jenkinsfile` for typos; re-run seed if missing |
 | "Image not found in ECR" error in deploy job | ECR propagation lag after push, or upstream push stage failed | Deploy job retries 5 × 3s before failing; verify `Build + Push Image` stage completed; check ECR console for the tag |
-| Staging deploy auto-rolled back | `kubectl rollout status` timed out or smoke test failed | `kubectl logs -n weather-staging -l app=weather-api --tail=100`; rollback is intentional staging-only behavior — fix the root cause before re-triggering |
+| Staging deploy auto-rolled back | Smoke test failed (Deployment auto-rolls on image-tag change; smoke test is the deploy-health gate) | `kubectl logs -n weather-staging -l app=weather-api --tail=100`; rollback is intentional staging-only behavior — fix the root cause before re-triggering |
 | Prod deploy failed, no rollback triggered | By design — prod fails loudly per policy | Re-run `max-weather-deploy` from the Jenkins UI with the previous working `IMAGE_TAG`, or use the Makefile escape hatch `make deploy-prod` |
 
 ---
