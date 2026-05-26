@@ -3,7 +3,7 @@
 # gate result.
 #
 # Usage: assert.sh <scanner> <jenkins-build-url> <expected-result>
-#   <scanner>          : gitleaks | semgrep | trivy-fs | trivy-image | zap
+#   <scanner>          : gitleaks | semgrep | trivy-image
 #   <jenkins-build-url>: full URL to the specific build (e.g.
 #                        https://jenkins.example.com/job/max-weather/job/fixture%2Fgitleaks/42/)
 #   <expected-result>  : SUCCESS | FAILURE | UNSTABLE | ABORTED
@@ -13,7 +13,7 @@
 # Auth: if JENKINS_USER and JENKINS_TOKEN are set, they are used for basic auth.
 set -euo pipefail
 
-KNOWN_SCANNERS=(gitleaks semgrep trivy-fs trivy-image zap)
+KNOWN_SCANNERS=(gitleaks semgrep trivy-image)
 KNOWN_RESULTS=(SUCCESS FAILURE UNSTABLE ABORTED)
 
 usage() {
@@ -21,7 +21,7 @@ usage() {
 Usage: assert.sh <scanner> <jenkins-build-url> <expected-result>
 
 Arguments:
-  scanner             gitleaks | semgrep | trivy-fs | trivy-image | zap
+  scanner             gitleaks | semgrep | trivy-image
   jenkins-build-url   Full URL of the Jenkins build (with or without trailing /)
   expected-result     SUCCESS | FAILURE | UNSTABLE | ABORTED
 

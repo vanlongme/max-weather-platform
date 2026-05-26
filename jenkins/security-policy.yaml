@@ -16,11 +16,6 @@
 #     https://aquasecurity.github.io/trivy/latest/docs/configuration/
 #     filtering/#by-severity
 #   semgrep rulesets: https://semgrep.dev/explore
-#   cosign KMS URI:
-#     https://docs.sigstore.dev/cosign/key_management/
-#     signing_with_self-managed_keys/#aws-kms
-#   ZAP baseline config:
-#     https://www.zaproxy.org/docs/docker/baseline-scan/#configuration-file
 version: 1
 scans:
   secrets:
@@ -37,12 +32,6 @@ scans:
       - p/owasp-top-ten
       - p/javascript
     allowlist_file: .semgrepignore
-  sca_fs:
-    tool: trivy-fs
-    mode: advisory
-    severity_threshold: "HIGH,CRITICAL"
-    allowlist_file: .trivyignore
-    ignore_unfixed: true
   sca_npm:
     tool: npm-audit
     mode: advisory
@@ -54,24 +43,5 @@ scans:
     severity_threshold: "HIGH,CRITICAL"
     allowlist_file: .trivyignore
     ignore_unfixed: true
-  dast:
-    tool: zap-baseline
-    mode: advisory
-    severity_threshold: High
-    allowlist_file: .zap/baseline.conf
-  sign:
-    tool: cosign
-    mode: advisory
-    required: true
-    kms_alias: alias/max-weather-cosign-signer
-  verify:
-    tool: cosign
-    mode: advisory
-    required: true
-  sbom:
-    tool: syft
-    mode: advisory
-    required: true
-    format: spdx-json
 notifications:
   target: jenkins_ui

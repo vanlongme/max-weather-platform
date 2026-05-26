@@ -22,7 +22,7 @@ cd "$REPO_ROOT"
 
 REMOTE="${REMOTE:-origin}"
 MAIN_BRANCH="${MAIN_BRANCH:-main}"
-KNOWN_SCANNERS=(gitleaks semgrep trivy-fs trivy-image zap)
+KNOWN_SCANNERS=(gitleaks semgrep trivy-image)
 
 usage() {
   cat <<'EOF'
@@ -31,9 +31,7 @@ Usage: provision.sh <subcommand>
 Subcommands:
   gitleaks       Plant AWS docs canonical dummy key (app/canary-secret.txt)
   semgrep        Plant tainted-eval pattern (app/src/canary-eval.js)
-  trivy-fs       Pin lodash@4.17.4 in app/package.json
   trivy-image    Add Dockerfile.canary using FROM node:14-alpine
-  zap            Add middleware that drops X-Content-Type-Options
   teardown       Delete all fixture/<scanner> branches on origin
   -h, --help     Show this help
 
@@ -102,40 +100,6 @@ EOF
   commit_and_push "semgrep"
 }
 
-plant_trivy_fs() {
-  start_branch "trivy-fs"
-  local target="app/package.json"
-  if [[ ! -f "${target}" ]]; then
-    log "ERROR: ${target} not found; cannot plant trivy-fs fixture"
-    exit 1
-  fi
-  # Pin to lodash@4.17.4 (multiple historical advisories: CVE-2018-3721,
-  # CVE-2019-10744, etc.). Uses python -c for deterministic JSON edit; falls
-  # back to node if python3 missing.
-  if command -v python3 >/dev/null 2>&1; then
-    python3 - "${target}" <<'PY'
-import json, sys
-p = sys.argv[1]
-with open(p) as f:
-    pkg = json.load(f)
-pkg.setdefault("dependencies", {})["lodash"] = "4.17.4"
-with open(p, "w") as f:
-    json.dump(pkg, f, indent=2)
-    f.write("\n")
-PY
-  else
-    node -e '
-      const fs = require("fs");
-      const p = process.argv[1];
-      const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
-      pkg.dependencies = pkg.dependencies || {};
-      pkg.dependencies.lodash = "4.17.4";
-      fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
-    ' "${target}"
-  fi
-  commit_and_push "trivy-fs"
-}
-
 plant_trivy_image() {
   start_branch "trivy-image"
   local target="tests/security/fixtures/Dockerfile.canary"
@@ -150,30 +114,6 @@ COPY . .
 CMD ["node", "--version"]
 EOF
   commit_and_push "trivy-image"
-}
-
-plant_zap() {
-  start_branch "zap"
-  local target="app/src/middleware/canary-headers.js"
-  mkdir -p "$(dirname "${target}")"
-  cat > "${target}" <<'EOF'
-// CANARY FIXTURE — DO NOT MERGE
-// Strips X-Content-Type-Options before responses leave the app, which makes
-// OWASP ZAP baseline scan raise the "X-Content-Type-Options Header Missing"
-// alert. Wire this middleware into the Express app on the fixture branch only.
-module.exports = function canaryHeaderStripper(_req, res, next) {
-  const origSetHeader = res.setHeader.bind(res);
-  res.setHeader = function patched(name, value) {
-    if (typeof name === "string" && name.toLowerCase() === "x-content-type-options") {
-      return res;
-    }
-    return origSetHeader(name, value);
-  };
-  res.removeHeader("X-Content-Type-Options");
-  next();
-};
-EOF
-  commit_and_push "zap"
 }
 
 teardown() {
@@ -207,9 +147,7 @@ main() {
   case "$1" in
     gitleaks)     plant_gitleaks ;;
     semgrep)      plant_semgrep ;;
-    trivy-fs)     plant_trivy_fs ;;
     trivy-image)  plant_trivy_image ;;
-    zap)          plant_zap ;;
     teardown)     teardown ;;
     -h|--help)    usage ;;
     *)

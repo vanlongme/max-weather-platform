@@ -59,8 +59,7 @@ def load(String path = 'jenkins/security-policy.yaml') {
  * Errors loudly if the scan name is not found in the policy — this is a
  * pipeline-author bug, not a runtime condition to recover from.
  *
- * @param name  Scan key (secrets, sast, sca_fs, sca_npm, container, dast, sign,
- *              verify, sbom).
+ * @param name  Scan key (secrets, sast, sca_npm, container).
  * @return      Map with: tool, mode, severity_threshold, allowlist_file, etc.
  */
 def scan(String name) {
@@ -94,7 +93,7 @@ def blocking(String name) {
  *
  * Pass directly to scanner CLI arguments. Case is preserved as declared in the
  * yaml — different scanners use different conventions (HIGH for trivy/semgrep,
- * high for npm-audit, High for ZAP).
+ * high for npm-audit).
  *
  * @param name  Scan key.
  * @return      String threshold (e.g. 'HIGH', 'high', 'High', 'any') or null if

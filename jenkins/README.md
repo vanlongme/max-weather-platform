@@ -52,9 +52,15 @@ terraform apply  (module.eks_self_managed_addons.helm_release.jenkins)
 Developer pushes to main
   └── max-weather-ci triggered (SCM poll or webhook)
         ├── Checkout
-        ├── App Lint + Test  (app/junit.xml published)
-        ├── Trivy Container Image Scan  (fails on HIGH/CRITICAL)
-        ├── Build + Push Image  →  ECR: <repo>:<GIT_SHA>  (single tag, no prefix)
+        ├── Resolve ECR Repo
+        ├── Secret Scan (gitleaks)            — report: gitleaks-report.json
+        ├── App Lint + Test                   — app/junit.xml published
+        ├── SAST (semgrep)                    — report: semgrep-report.json
+        ├── SCA (npm audit)                   — production deps only; report: npm-audit-report.json
+        ├── Build Container Image (kaniko)    — builds tarball, NO push yet
+        ├── Container Image Scan (trivy)      — scans tarball; report: trivy-image-report.json
+        ├── Push Image to ECR                 — kaniko re-runs with cache + --destination
+        │                                       (image tag = $GIT_SHA, single tag, no prefix)
         ├── Deploy to Staging  →  triggers max-weather-deploy (IMAGE_TAG=<sha>, ENV=staging, APP_REPO=<ecr-url>)
         │     └── max-weather-deploy (staging):
         │           ├── Validate Params
@@ -90,7 +96,7 @@ Developer pushes to main
 - **File**: `jenkins/pipelines/ci.Jenkinsfile`
 - **Trigger**: SCM poll (`H/5 * * * *`) or GitHub webhook on `main`
 - **Timeout**: 30 minutes
-- **Stages**: Checkout → App Lint+Test → Trivy Container Image Scan → Build+Push Image → Deploy to Staging → Approve Prod Deploy → Deploy to Prod
+- **Stages**: Checkout → Resolve ECR Repo → Secret Scan (gitleaks) → App Lint+Test → SAST (semgrep) → SCA (npm audit) → Build Container Image (kaniko, no-push tarball) → Container Image Scan (trivy --input tar) → Push Image to ECR (kaniko cache re-run) → Deploy to Staging → Approve Prod Deploy → Deploy to Prod
 - **Image tag**: Single env-agnostic `$GIT_SHA` (no `staging-` prefix, no `latest`)
 - **ECR URL**: Resolved at runtime from `aws sts get-caller-identity` (no hardcoded account ID)
 - **Log retention**: 15 builds
@@ -208,7 +214,7 @@ Credentials are stored in **AWS Secrets Manager**, synced into Kubernetes by **E
 
 ## Security Gates
 
-Four security gate stages run in `jenkins/pipelines/ci.Jenkinsfile`. All scan modes are governed by [`jenkins/security-policy.yaml`](security-policy.yaml) — the single source of truth for thresholds, allowlists, and blocking vs. advisory behaviour. See [`../ARCHITECTURE.md`](../ARCHITECTURE.md) section 5 for the full CI/CD flow with gate positions.
+Four security gate stages run inline in `jenkins/pipelines/ci.Jenkinsfile` between checkout and image push. All scan modes are governed by [`jenkins/security-policy.yaml`](security-policy.yaml) — the single source of truth for thresholds, allowlists, and blocking vs. advisory behaviour. See [`../ARCHITECTURE.md`](../ARCHITECTURE.md) section 5 for the full CI/CD flow with gate positions.
 
 ### Gate Layout
 
@@ -216,26 +222,20 @@ Four security gate stages run in `jenkins/pipelines/ci.Jenkinsfile`. All scan mo
 main push  →  max-weather-ci
   ├── Checkout
   ├── Resolve ECR Repo
-  ├── Pre-Source Gates  (parallel)
-  │     ├── Secret Scan (gitleaks)     — scans git history; report: gitleaks-report.json
-  │     ├── SAST (semgrep)             — p/nodejs, p/owasp-top-ten, p/javascript; report: semgrep-report.json
-  │     ├── SCA FS (trivy-fs)          — vuln+secret scan of app/; report: trivy-fs-report.json
-  │     └── SCA NPM (npm audit)        — production deps only (--omit=dev); report: npm-audit-report.json
+  ├── Secret Scan (gitleaks)            — scans tree; report: gitleaks-report.json
   ├── App Lint + Test
-  ├── Build + Push App Image (kaniko)
-  ├── Image Gates  (parallel)
-  │     ├── Trivy Image                — container CVE scan; report: trivy-image-report.json
-  │     ├── SBOM (syft)                — SPDX-JSON artifact: sbom.spdx.json
-  │     └── Cosign Sign                — KMS sign by digest (alias/max-weather-cosign-signer)
+  ├── SAST (semgrep)                    — p/nodejs, p/owasp-top-ten, p/javascript; report: semgrep-report.json
+  ├── SCA (npm audit)                   — production deps only (--omit=dev); report: npm-audit-report.json
+  ├── Build Container Image             — kaniko --no-push --tar-path=image.tar
+  ├── Container Image Scan (trivy)      — trivy image --input image.tar; report: trivy-image-report.json
+  │                                       Image is NOT pushed unless scan passes (blocking mode)
+  ├── Push Image to ECR                 — kaniko cache re-run with --destination
   ├── Deploy to Staging
-  ├── Runtime Gates
-  │     └── ZAP Baseline               — DAST against staging API GW + minted JWT; report: zap-report.json
   ├── Approve Prod Deploy  (24h input)
-  ├── Pre-Prod Gates  (parallel)
-  │     ├── Cosign Verify              — ALWAYS blocking; re-verifies digest before prod deploy
-  │     └── Drift Re-scan              — trivy image re-scan to catch CVEs published since Image Gates
   └── Deploy to Prod
 ```
+
+Build–scan–push ordering guarantees a failed `Container Image Scan` blocks ECR push entirely: the previous stage builds the image as a local tarball with `--no-push`, trivy scans the tarball, and only on pass does the subsequent stage re-run kaniko with the registry destination (layer cache hit = effectively push-only).
 
 All scan artifacts are archived to the Jenkins build (`archiveArtifacts`). Each gate reads mode (`advisory`/`blocking`) and thresholds from `security-policy.yaml` via the `securityPolicy` Shared Library var — scanners never hardcode thresholds.
 
@@ -254,7 +254,7 @@ To promote a scan from advisory to blocking:
 2. Commit and push to `main`.
 3. The next CI build picks up the change automatically — no seed re-run, no pod restart.
 
-All 9 scan keys start as `mode: advisory`. Flip them one at a time; verify build stability before flipping the next.
+All four scan keys (`secrets`, `sast`, `sca_npm`, `container`) start as `mode: advisory`. Flip them one at a time; verify build stability before flipping the next.
 
 ### Shared Library Usage
 
@@ -264,7 +264,7 @@ The `max-weather-shared` Shared Library (`jenkins/vars/securityPolicy.groovy`) e
 |------|---------|---------|
 | `securityPolicy.blocking('secrets')` | `true` if `mode: blocking`, else `false` | Gate `if (exitCode != 0 && securityPolicy.blocking('secrets'))` |
 | `securityPolicy.thresholdFor('sast')` | String severity (e.g. `HIGH`) or `null` | Passed as `--severity ${threshold}` |
-| `securityPolicy.allowlistFor('sca_fs')` | Path string (e.g. `.trivyignore`) or `null` | Passed as `--ignorefile ${allowlist}` |
+| `securityPolicy.allowlistFor('container')` | Path string (e.g. `.trivyignore`) or `null` | Passed as `--ignorefile ${allowlist}` |
 
 The library is loaded via `@Library('max-weather-shared') _` on line 1 of `ci.Jenkinsfile`. `implicit: false` in JCasC means each Jenkinsfile must opt in explicitly.
 
@@ -276,41 +276,15 @@ Suppress a specific scanner finding by adding an entry to the relevant allowlist
 |------|---------|---------|---------------------|
 | `.gitleaks.toml` | gitleaks | Exclude false-positive secret patterns or paths | Test fixtures with dummy credentials, known-safe config values |
 | `.semgrepignore` | semgrep | Skip files or directories from SAST scan | Vendored code, generated files, third-party bundles |
-| `.trivyignore` | trivy-fs, trivy-img, drift re-scan | Suppress specific CVE IDs by severity | Unfixed CVEs with confirmed no-impact justification (document the reason in a comment) |
-| `.zap/baseline.conf` | ZAP baseline | Ignore specific ZAP rule IDs or alert types | False positives confirmed safe for the API's threat model |
-
-### Cosign Verify Procedure
-
-To verify a signed image outside CI (e.g. post-incident audit):
-
-```bash
-cosign verify \
-  --key awskms:///alias/max-weather-cosign-signer \
-  <ECR_REPO>@<DIGEST>
-```
-
-Where `<ECR_REPO>` is the full ECR URI (e.g. `123456789.dkr.ecr.us-east-1.amazonaws.com/poc-max-weather-api-repo`) and `<DIGEST>` is the `sha256:...` digest from ECR. The `jenkins-agent` IAM role has KMS Verify permission. Any IAM principal with `kms:Verify` on `alias/max-weather-cosign-signer` can run this.
-
-The `Pre-Prod Gates / Cosign Verify` stage runs this check automatically before every prod deploy and always runs in blocking mode regardless of the `verify` key's `mode` value in `security-policy.yaml` (`set -eu` makes any non-zero exit fatal).
-
-### Fixture Test Harness
-
-`jenkins/tests/security-policy-fixtures/` contains minimal YAML fixtures and a Groovy unit test for `securityPolicy.groovy`. Run locally (requires Groovy 3+):
-
-```bash
-cd jenkins
-groovy tests/security-policy-fixtures/securityPolicySpec.groovy
-```
-
-Tests cover: `blocking()` returns `false` for advisory keys, `true` for blocking keys; `thresholdFor()` returns correct severity; `allowlistFor()` returns correct path.
+| `.trivyignore` | trivy-img | Suppress specific CVE IDs by severity | Unfixed CVEs with confirmed no-impact justification (document the reason in a comment) |
 
 ### Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Trivy stages fail with "unable to open DB file" or cache miss every build | `trivy-db-cache` PVC not bound — StorageClass `ebs-csi-default-sc` not available or PVC stuck in `Pending` | `kubectl get pvc trivy-db-cache -n jenkins`; verify EBS CSI driver is running (`kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver`); check `ebs-csi-default-sc` StorageClass exists |
-| ZAP stage skipped or exits with "STAGING_URL not set" | `STAGING_URL` Jenkins env var not configured, and `terraform output` call failed (Terraform state not accessible from agent pod) | Set `STAGING_URL` as a Jenkins global environment variable in JCasC (`jenkins.globalNodeProperties`) or as a pipeline credential; value: `$(cd infra/envs/poc && terraform output -raw api_gateway_invoke_url_staging)` |
-| Cosign sign/verify fails with "AccessDenied" or KMS permission error | `jenkins-agent` IAM role missing `kms:Sign` or `kms:Verify` on `alias/max-weather-cosign-signer` — Pod Identity binding may have drifted | Check Pod Identity association: `aws eks list-pod-identity-associations --cluster-name poc-max-weather-cluster`; verify IAM policy attached to the agent role includes `kms:Sign`, `kms:Verify`, `kms:GetPublicKey` on the KMS key ARN |
+| Trivy stage fails with "unable to open DB file" or cache miss every build | `trivy-db-cache` PVC not bound — StorageClass `ebs-csi-default-sc` not available or PVC stuck in `Pending` | `kubectl get pvc trivy-db-cache -n jenkins`; verify EBS CSI driver is running (`kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver`); check `ebs-csi-default-sc` StorageClass exists |
+| Container Image Scan fails but image already in ECR | Pipeline ran an older revision that pushed first then scanned, or kaniko cache re-run ran before trivy completed | Verify build order in `ci.Jenkinsfile`: `Build Container Image` → `Container Image Scan` → `Push Image to ECR`. If trivy fails, the `Push Image to ECR` stage must not execute. Check Jenkins stage view for skipped stages |
+| Kaniko `--no-push` stage missing `image.tar` for trivy | `WORKSPACE` mismatch between containers, or kaniko OOM-killed mid-build | All containers share `/home/jenkins/agent` workspace via the JNLP pod template — verify `ls -lh ${WORKSPACE}/image.tar` in build logs; bump kaniko memory limit in `ci.Jenkinsfile` pod spec if OOM |
 
 ### Follow-ups / Known Gaps
 
@@ -319,6 +293,9 @@ Items deferred from this implementation. None of these are stubs or partial work
 | Item | Reason deferred |
 |------|----------------|
 | Lambda authorizer scan | Authorizer code (`infra/envs/poc/lambdas/authorizer/`) excluded from all scan paths — different deployment lifecycle, no container image |
+| SBOM generation (syft) | Removed from POC pipeline — re-introduce when SBOM publication target (e.g. Dependency-Track, GitHub) is selected |
+| Image signing (cosign + KMS) | Removed from POC pipeline — re-introduce alongside admission policy that enforces signature verification |
+| DAST (ZAP baseline) | Removed from POC pipeline — re-introduce when staging environment has a stable per-build URL and managed test data |
 | Kyverno / OPA admission control | Admission webhook infrastructure not provisioned; would require cluster-level policy CRDs outside Jenkins scope |
 | IaC scan (checkov / tfsec) | Terraform state contains sensitive outputs; safe scan requires a separate isolated runner with read-only state access, not the current agent pod |
 | K8s manifest lint (kube-linter / kubeconform) | Kustomize overlays use dynamic image substitution that breaks static lint without a full `kustomize build` step; deferred until manifest structure stabilises |

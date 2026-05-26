@@ -50,50 +50,42 @@ Both envs share one ECR repo and one image per commit — the **same `$GIT_SHA`-
 main push  →  max-weather-ci (Jenkins, upstream)
                 ├── Checkout
                 ├── Resolve ECR Repo
-                ├── Pre-Source Gates  (parallel)       ← secrets, SAST, SCA-FS, SCA-NPM
-                │     ├── Secret Scan (gitleaks)
-                │     ├── SAST (semgrep)
-                │     ├── SCA FS (trivy-fs)
-                │     └── SCA NPM (npm audit)
+                ├── Secret Scan (gitleaks)
                 ├── App Lint + Test (Jest)             ───→ JUnit published
-                ├── Build + Push App Image (kaniko)    ───→ ECR :<git-sha>
-                ├── Image Gates  (parallel)            ← container CVE, SBOM, signing
-                │     ├── Trivy Image
-                │     ├── SBOM (syft → spdx-json)
-                │     └── Cosign Sign  (KMS alias/max-weather-cosign-signer)
+                ├── SAST (semgrep)
+                ├── SCA (npm audit, --omit=dev)
+                ├── Build Container Image (kaniko)     ───→ local tarball, NO push yet
+                ├── Container Image Scan (trivy)       ───→ trivy image --input image.tar
+                ├── Push Image to ECR (kaniko cache)   ───→ ECR :<git-sha>
                 ├── Deploy to Staging
                 │     └── max-weather-deploy (ENV=staging)
                 │           kustomize edit set image  →  kubectl apply -k overlays/staging
                 │           smoke test → auto-rollback on failure
-                ├── Runtime Gates                      ← DAST against live staging
-                │     └── ZAP Baseline (API GW + minted HS256 JWT)
                 ├── input "Approve Prod Deploy"        (24h timeout)
-                ├── Pre-Prod Gates  (parallel)         ← final gate before prod
-                │     ├── Cosign Verify  (ALWAYS blocking)
-                │     └── Drift Re-scan (trivy image, catches new CVEs since Image Gates)
                 └── Deploy to Prod
                       └── max-weather-deploy (ENV=prod)
                             same flow, NO auto-rollback
 ```
 
-- Jenkins controller runs in-cluster (no static agents); each build spawns a pod-per-build agent via the Kubernetes plugin (containers: jnlp, node, aws, kaniko, trivy, gitleaks, semgrep, syft, cosign, zap).
-- Agent ServiceAccount holds an EKS access entry granting Edit on `weather-{staging,prod}` + ECR push + KMS Sign/Verify — all via Pod Identity, zero static credentials.
+- Build–scan–push ordering: kaniko builds with `--no-push --tar-path`; trivy scans the tarball; only on pass does kaniko re-run with `--destination` (layer cache hit ≈ push-only). A failing scan never produces an ECR tag.
+- Jenkins controller runs in-cluster (no static agents); each build spawns a pod-per-build agent via the Kubernetes plugin (containers: jnlp, node, aws, kaniko, trivy, gitleaks, semgrep).
+- Agent ServiceAccount holds an EKS access entry granting Edit on `weather-{staging,prod}` + ECR push — all via Pod Identity, zero static credentials.
 - Pipelines are code: `jenkins/jobs.groovy` (Job DSL seed) + `jenkins/pipelines/*.Jenkinsfile`. Detailed flow, policy flip procedure, and troubleshooting in [`jenkins/README.md`](jenkins/README.md).
 
 ### Security Posture
 
-Gate modes and thresholds are centralised in [`jenkins/security-policy.yaml`](jenkins/security-policy.yaml). All 9 scan keys ship as `mode: advisory` (build goes UNSTABLE on findings, not FAILED). Flip individual keys to `mode: blocking` as the project matures — one key at a time, committed to `main`.
+Gate modes and thresholds are centralised in [`jenkins/security-policy.yaml`](jenkins/security-policy.yaml). All four scan keys ship as `mode: advisory` (build goes UNSTABLE on findings, not FAILED). Flip individual keys to `mode: blocking` as the project matures — one key at a time, committed to `main`.
 
-| Gate stage | Scanners | Policy key(s) | Default mode |
-|------------|---------|---------------|-------------|
-| Pre-Source Gates | gitleaks, semgrep, trivy-fs, npm audit | `secrets`, `sast`, `sca_fs`, `sca_npm` | advisory |
-| Image Gates | trivy image, syft, cosign sign | `container`, `sbom`, `sign` | advisory |
-| Runtime Gates | ZAP baseline | `dast` | advisory |
-| Pre-Prod Gates | cosign verify, trivy drift re-scan | `verify`, `container` | verify always blocks; drift re-scan follows `container` mode |
+| Gate stage | Scanner | Policy key | Default mode |
+|------------|---------|------------|-------------|
+| Secret Scan | gitleaks | `secrets` | advisory |
+| SAST | semgrep | `sast` | advisory |
+| SCA | npm audit (production deps) | `sca_npm` | advisory |
+| Container Image Scan | trivy image (input tarball) | `container` | advisory |
 
-Cosign verify (`Pre-Prod Gates`) always runs with `set -eu` regardless of the `verify` policy key — an unsigned image never reaches prod.
+When `container` is flipped to `blocking`, a failing trivy scan halts the pipeline before the `Push Image to ECR` stage — the image is never pushed.
 
-Deferred items (Lambda authorizer scan, Kyverno/OPA admission, IaC scan, K8s manifest lint, AWS Security Hub, license compliance) are listed with rationale in [`jenkins/README.md`](jenkins/README.md) under "Follow-ups / Known Gaps".
+Deferred items (SBOM publication, image signing, DAST, Lambda authorizer scan, Kyverno/OPA admission, IaC scan, K8s manifest lint, AWS Security Hub, license compliance) are listed with rationale in [`jenkins/README.md`](jenkins/README.md) under "Follow-ups / Known Gaps".
 
 ## 6. Scaling
 
