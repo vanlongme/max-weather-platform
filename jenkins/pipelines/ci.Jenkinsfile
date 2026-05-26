@@ -318,22 +318,6 @@ spec:
             done
             docker version
 
-            # Pre-pull base images sequentially with retries. Chainguard's
-            # cgr.dev free-tier registry rate-limits parallel blob fetches
-            # ("Error 1040: Too many connections"); BuildKit's default parallel
-            # layer download trips this. Pulling sequentially first warms the
-            # local daemon cache; the subsequent build resolves to local layers
-            # without any registry round-trip.
-            for img in cgr.dev/chainguard/node:latest cgr.dev/chainguard/node:latest-dev; do
-              for attempt in 1 2 3 4 5; do
-                if docker pull "$img"; then
-                  echo "pulled $img (attempt $attempt)"; break
-                fi
-                echo "pull $img failed (attempt $attempt) — backing off"
-                sleep $((attempt * 5))
-              done
-            done
-
             DOCKER_BUILDKIT=1 docker build \
               --tag ${APP_REPO}:${GIT_SHA} \
               --file ${WORKSPACE}/app/Dockerfile \

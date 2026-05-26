@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
-ARG BASE_IMAGE=cgr.dev/chainguard/node:latest-dev
-ARG BUILDER_IMAGE=cgr.dev/chainguard/node:latest-dev
+ARG BUILDER_IMAGE=node:latest
+ARG BASE_IMAGE=gcr.io/distroless/nodejs22-debian12
 
 FROM ${BUILDER_IMAGE} AS deps
 WORKDIR /app
