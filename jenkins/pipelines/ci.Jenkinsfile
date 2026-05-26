@@ -25,8 +25,8 @@ spec:
       image: jenkins/inbound-agent:latest-jdk21
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 50m
+          memory: 128Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -37,8 +37,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 200m
-          memory: 512Mi
+          cpu: 100m
+          memory: 256Mi
         limits:
           cpu: 1000m
           memory: 1Gi
@@ -52,8 +52,8 @@ spec:
           value: us-east-1
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 50m
+          memory: 128Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -69,8 +69,8 @@ spec:
           value: "false"
       resources:
         requests:
-          cpu: 500m
-          memory: 1Gi
+          cpu: 250m
+          memory: 512Mi
         limits:
           cpu: 2000m
           memory: 4Gi
@@ -86,8 +86,8 @@ spec:
           value: "true"
       resources:
         requests:
-          cpu: 200m
-          memory: 512Mi
+          cpu: 100m
+          memory: 256Mi
         limits:
           cpu: 1000m
           memory: 1Gi
@@ -101,8 +101,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 200m
-          memory: 256Mi
+          cpu: 50m
+          memory: 128Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -113,8 +113,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 200m
-          memory: 512Mi
+          cpu: 100m
+          memory: 256Mi
         limits:
           cpu: 1000m
           memory: 2Gi
@@ -125,8 +125,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 200m
-          memory: 256Mi
+          cpu: 50m
+          memory: 128Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -137,8 +137,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 100m
-          memory: 128Mi
+          cpu: 50m
+          memory: 64Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -149,8 +149,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 500m
-          memory: 1Gi
+          cpu: 200m
+          memory: 512Mi
         limits:
           cpu: 2000m
           memory: 4Gi
