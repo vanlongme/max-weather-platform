@@ -130,7 +130,8 @@ spec:
       persistentVolumeClaim:
         claimName: trivy-db-cache
     - name: docker-storage
-      emptyDir: {}
+      emptyDir:
+        sizeLimit: 16Gi
 '''
     }
   }
