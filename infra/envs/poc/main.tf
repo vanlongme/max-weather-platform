@@ -120,8 +120,27 @@ module "eks_self_managed_addons" {
   log_group_name                     = module.cloudwatch.eks_application_log_group
   karpenter_queue_name               = module.eks.karpenter_queue_name
   karpenter_node_iam_role_name       = module.eks.karpenter_node_iam_role_name
+  private_subnet_ids                 = module.networking.private_subnet_ids
 
   depends_on = [module.eks, module.cloudwatch]
+}
+
+resource "aws_security_group" "apigw_vpclink" {
+  name        = "${local.master_prefix}-apigw-vpclink-sg"
+  description = "API Gateway VPC Link ENIs - egress to internal NLB targets."
+  vpc_id      = module.networking.vpc_id
+
+  egress {
+    description = "Egress to NLB targets within the VPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.master_prefix}-apigw-vpclink-sg"
+  })
 }
 
 module "api_gateway" {
@@ -133,6 +152,10 @@ module "api_gateway" {
   nlb_dns               = data.aws_lb.ingress_nlb.dns_name
   ingress_host          = "staging.max-weather.local"
   tags                  = local.common_tags
+
+  vpc_link_subnet_ids         = module.networking.private_subnet_ids
+  vpc_link_security_group_ids = [aws_security_group.apigw_vpclink.id]
+  nlb_listener_arn            = data.aws_lb_listener.ingress_nlb_80.arn
 
   stages = {
     staging = {

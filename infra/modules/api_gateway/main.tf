@@ -4,6 +4,15 @@ resource "aws_apigatewayv2_api" "this" {
   tags          = var.tags
 }
 
+resource "aws_apigatewayv2_vpc_link" "this" {
+  count = local.vpc_link_enabled ? 1 : 0
+
+  name               = "${var.name}-vpclink"
+  subnet_ids         = var.vpc_link_subnet_ids
+  security_group_ids = var.vpc_link_security_group_ids
+  tags               = var.tags
+}
+
 resource "aws_apigatewayv2_authorizer" "this" {
   api_id                            = aws_apigatewayv2_api.this.id
   authorizer_type                   = "REQUEST"
@@ -28,8 +37,9 @@ resource "aws_apigatewayv2_integration" "weather" {
   api_id             = aws_apigatewayv2_api.this.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = "${local.nlb_listener_uri}/weather"
-  connection_type    = "INTERNET"
+  integration_uri    = local.vpc_link_enabled ? local.integration_uri_base : "${local.integration_uri_base}/weather"
+  connection_type    = local.integration_connection_type
+  connection_id      = local.integration_connection_id
 
   request_parameters = {
     "overwrite:header.Host" = var.ingress_host
@@ -41,8 +51,9 @@ resource "aws_apigatewayv2_integration" "healthz" {
   api_id             = aws_apigatewayv2_api.this.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = "${local.nlb_listener_uri}/healthz"
-  connection_type    = "INTERNET"
+  integration_uri    = local.vpc_link_enabled ? local.integration_uri_base : "${local.integration_uri_base}/healthz"
+  connection_type    = local.integration_connection_type
+  connection_id      = local.integration_connection_id
 
   request_parameters = {
     "overwrite:header.Host" = var.ingress_host

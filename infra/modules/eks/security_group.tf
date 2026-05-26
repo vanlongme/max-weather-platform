@@ -51,3 +51,35 @@ resource "aws_vpc_security_group_ingress_rule" "cluster_from_node" {
   to_port                      = 443
   referenced_security_group_id = aws_security_group.node.id
 }
+
+# ADR-T16.3: Hybrid MNG+Karpenter clusters need cross-SG DNS + return traffic.
+# MNG nodes use cluster primary SG; Karpenter nodes use dedicated node SG.
+# CoreDNS Pods land on MNG nodes but must accept DNS requests from Karpenter nodes.
+# Add three rules: 53/tcp, 53/udp (DNS), 1025-65535/tcp (return traffic).
+
+resource "aws_vpc_security_group_ingress_rule" "cluster_from_node_coredns_tcp" {
+  security_group_id            = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  description                  = "Nodes to cluster-SG CoreDNS 53/tcp (Karpenter to MNG-hosted DNS)"
+  ip_protocol                  = "tcp"
+  from_port                    = 53
+  to_port                      = 53
+  referenced_security_group_id = aws_security_group.node.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "cluster_from_node_coredns_udp" {
+  security_group_id            = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  description                  = "Nodes to cluster-SG CoreDNS 53/udp (Karpenter to MNG-hosted DNS)"
+  ip_protocol                  = "udp"
+  from_port                    = 53
+  to_port                      = 53
+  referenced_security_group_id = aws_security_group.node.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "cluster_from_node_ephemeral" {
+  security_group_id            = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
+  description                  = "Nodes to cluster-SG ephemeral 1025-65535 (return traffic)"
+  ip_protocol                  = "tcp"
+  from_port                    = 1025
+  to_port                      = 65535
+  referenced_security_group_id = aws_security_group.node.id
+}

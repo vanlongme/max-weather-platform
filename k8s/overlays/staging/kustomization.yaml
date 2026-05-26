@@ -10,6 +10,6 @@ resources:
 images:
   - name: weather-api
     newName: 339712707744.dkr.ecr.us-east-1.amazonaws.com/poc-max-weather-api-repo
-    newTag: 4ad178c
+    newTag: 679a91b-fetchfix
 
 

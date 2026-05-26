@@ -49,3 +49,8 @@ variable "enable_keda" {
   type    = bool
   default = true
 }
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs Karpenter is allowed to provision workload nodes into. Prevents selection of public subnets that share the canonical kubernetes.io/role/internal-elb tag in a 2-tier VPC."
+  type        = list(string)
+}

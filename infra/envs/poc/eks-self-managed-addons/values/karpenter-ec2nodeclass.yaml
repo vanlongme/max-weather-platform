@@ -11,9 +11,10 @@
 ## block below.
 ##
 ## Discovers subnets and security groups by tag (set on the EKS module).
-## envsubst variables:
-##   ${CLUSTER_NAME}                       - terraform output: cluster_name
-##   ${KARPENTER_NODE_IAM_ROLE_NAME}       - terraform output: karpenter_node_iam_role_name
+## templatefile variables (interpolated by Terraform at plan time):
+##   $${CLUSTER_NAME}                  - terraform output: cluster_name
+##   $${KARPENTER_NODE_IAM_ROLE_NAME}  - terraform output: karpenter_node_iam_role_name
+##   $${PRIVATE_SUBNET_IDS_YAML}       - pre-rendered "    - id: subnet-xxx" list from module.networking.private_subnet_ids
 apiVersion: karpenter.k8s.aws/v1
 kind: EC2NodeClass
 metadata:
@@ -24,9 +25,7 @@ spec:
     - alias: bottlerocket@latest
   role: ${KARPENTER_NODE_IAM_ROLE_NAME}
   subnetSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: ${CLUSTER_NAME}
-        kubernetes.io/role/internal-elb: "1"
+${PRIVATE_SUBNET_IDS_YAML}
   securityGroupSelectorTerms:
     - tags:
         karpenter.sh/discovery: ${CLUSTER_NAME}

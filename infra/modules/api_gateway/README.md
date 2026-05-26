@@ -88,9 +88,13 @@ module "api_gateway" {
 | `name` | Resource name prefix (typically `master_prefix`, e.g. `poc-max-weather`). | `string` | n/a | yes |
 | `lambda_authorizer_arn` | ARN of the Lambda function used as the JWT authorizer. | `string` | n/a | yes |
 | `lambda_function_name` | Name of the Lambda function (used for `aws_lambda_permission`). | `string` | n/a | yes |
-| `nlb_dns` | DNS name of the Network Load Balancer fronting the EKS ingress. | `string` | n/a | yes |
+| `nlb_dns` | DNS name of the Network Load Balancer fronting the EKS ingress. Used as the integration URI host in INTERNET mode (default). Still required when VPC Link mode is enabled (kept for backward-compatible signature, ignored at integration time). | `string` | n/a | yes |
+| `ingress_host` | Static Host header value injected via `overwrite:header.Host` so ingress-nginx host-based routing matches. | `string` | n/a | yes |
 | `stages` | Map of API Gateway stages to create. Each stage gets its own integrations and routes. See schema below. | `map(object)` | n/a | yes |
 | `tags` | Common tags to apply to all resources. | `map(string)` | `{}` | no |
+| `vpc_link_subnet_ids` | Private subnet IDs (one per AZ) for the API Gateway VPC Link ENIs. Empty list (default) disables VPC Link and keeps `connection_type=INTERNET`. Supplying a non-empty list enables VPC Link mode. | `list(string)` | `[]` | no |
+| `vpc_link_security_group_ids` | Security group IDs attached to the VPC Link ENIs. Only used when `vpc_link_subnet_ids` is non-empty. | `list(string)` | `[]` | no |
+| `nlb_listener_arn` | ARN of the NLB listener (e.g. port 80) that integrations target when VPC Link mode is enabled. Only used when `vpc_link_subnet_ids` is non-empty. | `string` | `""` | no |
 
 ### `stages` object schema
 
@@ -100,6 +104,49 @@ module "api_gateway" {
 | `secret_arn` | `string` | ARN of the per-stage Secrets Manager secret holding the HS256 signing key. Consumed by the Lambda authorizer via the per-stage context the authorizer reads from environment / lookup. |
 | `issuer` | `string` | Expected JWT `iss` claim value for this stage. Per-stage isolation. |
 | `scope` | `string` | Required JWT scope for this stage. |
+
+## VPC Link mode (private cluster)
+
+By default this module uses `connection_type = "INTERNET"` and routes API
+Gateway → NLB traffic via the public DNS name of the NLB. When the NLB is
+internal (no public IPs), API Gateway must reach it over a private network
+hop instead.
+
+Supply `vpc_link_subnet_ids` (and the companion inputs) to enable **VPC Link
+mode**. The module then creates an `aws_apigatewayv2_vpc_link` whose ENIs
+land in the supplied private subnets, and both `weather` / `healthz`
+integrations switch to `connection_type = "VPC_LINK"`, with
+`integration_uri = var.nlb_listener_arn`.
+
+```hcl
+module "api_gateway" {
+  source = "../../modules/api_gateway"
+
+  name                  = local.master_prefix
+  lambda_authorizer_arn = module.lambda.function_arns["authorizer"]
+  lambda_function_name  = module.lambda.function_names["authorizer"]
+  nlb_dns               = data.aws_lb.ingress_nlb.dns_name
+  ingress_host          = "staging.max-weather.local"
+
+  # Enable VPC Link mode — API GW → NLB traffic stays on the AWS backbone.
+  vpc_link_subnet_ids         = module.networking.private_subnet_ids
+  vpc_link_security_group_ids = [aws_security_group.apigw_vpclink.id]
+  nlb_listener_arn            = data.aws_lb_listener.ingress_nlb_80.arn
+
+  stages = { /* ... */ }
+  tags   = local.common_tags
+}
+```
+
+Notes:
+
+- `nlb_dns` remains required (backward-compatible signature). In VPC Link
+  mode it is unused at integration time but kept so callers/INTERNET-mode
+  consumers do not break.
+- The VPC Link `Status` becomes `AVAILABLE` after ~30 s. Verify with
+  `aws apigatewayv2 get-vpc-links --query 'Items[0]'`.
+- The VPC Link SG only needs egress to the NLB targets (typically VPC CIDR
+  on the listener ports). It does NOT need ingress rules.
 
 ## Outputs
 

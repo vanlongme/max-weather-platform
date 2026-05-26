@@ -31,19 +31,42 @@ app.get('/weather', async (req, res) => {
 
   const url = `${config.weatherApiBase}/forecast?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&current_weather=true`;
 
-  const upstream = await globalThis.fetch(url);
-  const data = await upstream.json();
+  try {
+    const upstream = await globalThis.fetch(url, {
+      signal: AbortSignal.timeout(8000),
+    });
 
-  return res.status(upstream.status).json({
-    ...data,
-    _meta: {
-      source: 'open-meteo',
-      request_id: randomUUID(),
-    },
-  });
+    if (upstream.status < 200 || upstream.status >= 300) {
+      logger.error({ status: upstream.status, url }, 'upstream_error');
+      return res.status(502).json({
+        error: 'upstream_unavailable',
+        message: `upstream returned ${upstream.status}`,
+      });
+    }
+
+    const data = await upstream.json();
+
+    return res.status(upstream.status).json({
+      ...data,
+      _meta: {
+        source: 'open-meteo',
+        request_id: randomUUID(),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, 'fetch_failed');
+    return res.status(502).json({
+      error: 'upstream_unavailable',
+      message: err.message,
+    });
+  }
 });
 
 function start() {
+  process.on('unhandledRejection', (reason) => {
+    logger.error({ err: reason }, 'unhandled_rejection');
+  });
+
   app.listen(config.port, () => {
     logger.info({ port: config.port }, 'weather-api listening');
   });

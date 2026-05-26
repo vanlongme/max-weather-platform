@@ -103,8 +103,9 @@ resource "kubectl_manifest" "karpenter_ec2nodeclass_default" {
   yaml_body = templatefile("${path.module}/values/karpenter-ec2nodeclass.yaml", {
     CLUSTER_NAME                 = var.cluster_name
     KARPENTER_NODE_IAM_ROLE_NAME = var.karpenter_node_iam_role_name
+    PRIVATE_SUBNET_IDS_YAML      = join("\n", [for id in var.private_subnet_ids : "    - id: ${id}"])
   })
-  depends_on = [helm_release.karpenter]
+  depends_on = [helm_release.karpenter, helm_release.external_secrets]
 }
 
 resource "kubectl_manifest" "karpenter_nodepool_default" {

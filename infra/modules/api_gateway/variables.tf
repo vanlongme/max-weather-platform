@@ -37,3 +37,32 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+###############################################################################
+# Optional VPC Link mode (private cluster).
+#
+# When `vpc_link_subnet_ids` is non-empty, the module provisions an
+# `aws_apigatewayv2_vpc_link` and switches both integrations to
+# `connection_type = "VPC_LINK"` using the supplied NLB listener ARN as the
+# integration URI. When empty (default), the module retains the original
+# `connection_type = "INTERNET"` behavior using `var.nlb_dns` (backward
+# compatible).
+###############################################################################
+
+variable "vpc_link_subnet_ids" {
+  description = "Private subnet IDs (one per AZ) for the API Gateway VPC Link ENIs. Supply the same subnets the internal NLB lives in. Empty list (default) disables VPC Link and keeps connection_type=INTERNET."
+  type        = list(string)
+  default     = []
+}
+
+variable "vpc_link_security_group_ids" {
+  description = "Security group IDs attached to the VPC Link ENIs. Required (and used) only when `vpc_link_subnet_ids` is non-empty. The SG only needs egress to the NLB targets (typically the VPC CIDR on the workload ports)."
+  type        = list(string)
+  default     = []
+}
+
+variable "nlb_listener_arn" {
+  description = "ARN of the NLB listener (e.g. port 80) that integrations target when VPC Link mode is enabled. Required (and used) only when `vpc_link_subnet_ids` is non-empty; in INTERNET mode the module uses `var.nlb_dns` instead."
+  type        = string
+  default     = ""
+}
