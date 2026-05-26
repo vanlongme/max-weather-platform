@@ -207,7 +207,8 @@ spec:
       }
       post {
         always {
-          archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+          script { securityReport.summarize(tool: 'gitleaks', json: 'gitleaks-report.json') }
+          archiveArtifacts artifacts: 'gitleaks-report.json,gitleaks-summary.md', allowEmptyArchive: true
         }
       }
     }
@@ -261,7 +262,8 @@ spec:
       }
       post {
         always {
-          archiveArtifacts artifacts: 'semgrep-report.json', allowEmptyArchive: true
+          script { securityReport.summarize(tool: 'semgrep', json: 'semgrep-report.json') }
+          archiveArtifacts artifacts: 'semgrep-report.json,semgrep-summary.md', allowEmptyArchive: true
         }
       }
     }
@@ -297,7 +299,8 @@ spec:
       }
       post {
         always {
-          archiveArtifacts artifacts: 'npm-audit-report.json', allowEmptyArchive: true
+          script { securityReport.summarize(tool: 'npm-audit', json: 'npm-audit-report.json') }
+          archiveArtifacts artifacts: 'npm-audit-report.json,npm-audit-summary.md', allowEmptyArchive: true
         }
       }
     }
@@ -364,7 +367,8 @@ spec:
       }
       post {
         always {
-          archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
+          script { securityReport.summarize(tool: 'trivy-image', json: 'trivy-image-report.json') }
+          archiveArtifacts artifacts: 'trivy-image-report.json,trivy-image-summary.md', allowEmptyArchive: true
         }
       }
     }
