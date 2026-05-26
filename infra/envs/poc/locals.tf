@@ -14,9 +14,9 @@ locals {
     ManagedBy   = "terraform"
   }
 
-  # POC: jenkins-agent is granted namespaced admin via EKS access entry so the
+  # POC: jenkins-agent is granted cluster-admin via EKS access entry so the
   # deploy pipeline can reconcile workloads + CRDs (KEDA ScaledObject,
-  # external-secrets ExternalSecret) across the four operational namespaces.
+  # external-secrets ExternalSecret) and create namespaces on demand.
   # Production must replace this with least-privilege RBAC.
   eks_access_entries_effective = merge(
     {
@@ -33,11 +33,8 @@ locals {
         principal_arn = module.iam.pod_identity_role_arns["jenkins-agent"]
         policy_associations = {
           admin = {
-            policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-            access_scope = {
-              type       = "namespace"
-              namespaces = ["default", "weather-staging", "weather-prod", "jenkins"]
-            }
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
           }
         }
       }
