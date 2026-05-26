@@ -92,7 +92,11 @@ variable "cluster_addons" {
   type        = any
   default = {
     coredns = {
-      configuration_values = "{\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}"
+      depends_on_node_group       = true
+      most_recent                 = true
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
+      configuration_values        = "{\"nodeSelector\":{\"role\":\"infra\"},\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}"
     }
     kube-proxy             = { depends_on_node_group = true }
     vpc-cni                = { depends_on_node_group = false }
