@@ -186,7 +186,7 @@ private String _trivyImage(String raw) {
     }
     out << "\n## Top 10 CVEs\n\n"
     out << "| CVE | Severity | Package | Installed → Fixed |\n|-----|----------|---------|-------------------|\n"
-    vulns.sort { a, b -> _sevRank(b.Severity) <=> _sevRank(a.Severity) }.take(10).each { v ->
+    vulns.toSorted { a, b -> _sevRank(b.Severity) <=> _sevRank(a.Severity) }.take(10).each { v ->
         def id = v.VulnerabilityID ?: '?'
         def sev = v.Severity ?: '?'
         def pkg = v.PkgName ?: '?'
