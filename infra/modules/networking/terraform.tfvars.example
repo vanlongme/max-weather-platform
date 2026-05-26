@@ -1,11 +1,49 @@
 # Example tfvars for the networking module.
-# Copy to terraform.tfvars (or pass via -var-file) when invoking this module standalone.
+# Copy to terraform.tfvars (or pass via -var-file) when invoking standalone.
 
-cluster_name       = "max-weather"
+name               = "poc-max-weather"
+eks_cluster_name   = "poc-max-weather-cluster"
 vpc_cidr           = "10.20.0.0/16"
 availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
 public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
+
+###############################################################################
+# Private cluster topology — workers in private subnets, AWS APIs reached via
+# VPC interface endpoints + S3 gateway endpoint, no NAT gateway.
+###############################################################################
+private_subnet_cidrs = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
+enable_nat_gateway   = false
+enable_vpc_endpoints = true
+
+###############################################################################
+# VPC CNI custom networking ("2nd networking") — opt-in.
+# Pod subnet count must match availability_zones; CIDRs must lie inside
+# secondary_vpc_cidrs. Pod subnets get tagged kubernetes.io/cluster/<cluster>=owned
+# + internal-elb + karpenter discovery (NO public-elb), and share the private RT.
+###############################################################################
+# secondary_vpc_cidrs = ["100.64.0.0/16"]
+# pod_subnet_cidrs    = ["100.64.0.0/19", "100.64.32.0/19", "100.64.64.0/19"]
+
+# # Override the default interface-endpoint set (REPLACES the default entirely).
+# # vpc_interface_endpoints = {
+# #   ec2                  = "ec2"
+# #   ecr_api              = "ecr.api"
+# #   ecr_dkr              = "ecr.dkr"
+# #   sts                  = "sts"
+# #   logs                 = "logs"
+# #   eks                  = "eks"
+# #   eks_auth             = "eks-auth"
+# #   kms                  = "kms"
+# #   sqs                  = "sqs"
+# #   autoscaling          = "autoscaling"
+# #   elasticloadbalancing = "elasticloadbalancing"
+# #   ssm                  = "ssm"
+# #   ssmmessages          = "ssmmessages"
+# #   ec2messages          = "ec2messages"
+# # }
+# # enable_s3_gateway_endpoint       = true
+# # vpc_endpoint_private_dns_enabled = true
 
 enable_dns_hostnames = true
 enable_dns_support   = true

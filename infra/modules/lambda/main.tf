@@ -1,37 +1,3 @@
-resource "null_resource" "npm_install" {
-  for_each = local.functions_with_npm
-
-  triggers = {
-    package_lock_hash = filemd5("${each.value.npm_install_dir}/package-lock.json")
-  }
-
-  provisioner "local-exec" {
-    command     = "npm ci --omit=dev"
-    working_dir = each.value.npm_install_dir
-  }
-}
-
-data "archive_file" "function" {
-  for_each = var.functions
-
-  type        = "zip"
-  source_dir  = each.value.source_dir
-  output_path = "${path.module}/.terraform/archive/${each.key}.zip"
-
-  depends_on = [null_resource.npm_install]
-}
-
-resource "aws_cloudwatch_log_group" "function" {
-  for_each = var.functions
-
-  name              = "/aws/lambda/${var.name}-${each.key}${each.value.function_name_suffix}"
-  retention_in_days = each.value.log_retention_days
-
-  tags = merge(var.tags, {
-    Name = "/aws/lambda/${var.name}-${each.key}${each.value.function_name_suffix}"
-  })
-}
-
 resource "aws_lambda_function" "this" {
   for_each = var.functions
 

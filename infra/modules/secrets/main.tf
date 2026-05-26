@@ -1,10 +1,3 @@
-locals {
-  secret_names = {
-    for key, cfg in var.secrets :
-    key => replace(coalesce(cfg.name, "${var.name}-${key}-secret"), var.cluster_name_placeholder, var.name)
-  }
-}
-
 resource "aws_secretsmanager_secret" "secrets" {
   for_each = var.secrets
 

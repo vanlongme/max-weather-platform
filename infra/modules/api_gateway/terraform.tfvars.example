@@ -1,0 +1,29 @@
+# Example tfvars for the api_gateway module.
+# Most consumers should call this module from an env composition (see envs/poc/).
+# These values mirror the env defaults so the module can also be invoked standalone.
+
+name                    = "poc-max-weather"
+lambda_authorizer_arn   = "arn:aws:lambda:us-east-1:123456789012:function:poc-max-weather-authorizer"
+lambda_function_name    = "poc-max-weather-api"
+nlb_dns                 = "example-nlb-1234567890.elb.us-east-1.amazonaws.com"
+ingress_host            = "api.example.internal" # API Gateway v2 only supports static (non-templated) Host overwrites.
+
+stages = {
+  dev = {
+    secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-dev-jwt-secret-AbCdEf"
+    issuer     = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ExampleDevID"
+    scope      = "email openid"
+  }
+  prod = {
+    secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-prod-jwt-secret-XyZaBc"
+    issuer     = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ExampleProdID"
+    scope      = "email openid profile"
+  }
+}
+
+tags = {
+  Project     = "max-weather"
+  Environment = "poc"
+  ManagedBy   = "terraform"
+}
+# Supplying this map REPLACES the default {}. Re-declare every entry you want kept.

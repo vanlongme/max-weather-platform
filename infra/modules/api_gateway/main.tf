@@ -15,14 +15,6 @@ resource "aws_apigatewayv2_authorizer" "this" {
   identity_sources                  = ["$request.header.Authorization"]
 }
 
-resource "aws_lambda_permission" "api_gw" {
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = var.lambda_function_name
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.this.id}/*/*/*"
-}
-
 resource "aws_apigatewayv2_stage" "this" {
   for_each = var.stages
 
@@ -30,20 +22,6 @@ resource "aws_apigatewayv2_stage" "this" {
   name        = each.key
   auto_deploy = true
   tags        = var.tags
-}
-
-resource "null_resource" "delete_default_stage" {
-  triggers = {
-    api_id = aws_apigatewayv2_api.this.id
-  }
-
-  provisioner "local-exec" {
-    command = "aws apigatewayv2 delete-stage --api-id ${self.triggers.api_id} --stage-name '$$default' 2>/dev/null || true"
-  }
-
-  depends_on = [
-    aws_apigatewayv2_stage.this,
-  ]
 }
 
 resource "aws_apigatewayv2_integration" "weather" {

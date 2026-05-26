@@ -1,7 +1,3 @@
-locals {
-  cluster_tag_value = var.eks_cluster_name == "" ? var.name : var.eks_cluster_name
-}
-
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = var.enable_dns_hostnames
@@ -13,6 +9,7 @@ resource "aws_vpc" "main" {
 }
 
 resource "aws_internet_gateway" "main" {
+  count  = local.create_igw ? 1 : 0
   vpc_id = aws_vpc.main.id
 
   tags = merge(var.tags, {
@@ -21,7 +18,7 @@ resource "aws_internet_gateway" "main" {
 }
 
 resource "aws_subnet" "public" {
-  count = length(var.availability_zones)
+  count = length(var.public_subnet_cidrs)
 
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.public_subnet_cidrs[count.index]
@@ -37,12 +34,29 @@ resource "aws_subnet" "public" {
   })
 }
 
+resource "aws_subnet" "private" {
+  count = length(var.private_subnet_cidrs)
+
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.private_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
+  map_public_ip_on_launch = false
+
+  tags = merge(var.tags, {
+    Name                                                             = "${var.name}${var.private_subnet_name_prefix}${var.availability_zones[count.index]}"
+    (var.subnet_tag_role_internal_elb_key)                           = var.subnet_tag_role_elb_value
+    "${var.subnet_tag_cluster_key_prefix}${local.cluster_tag_value}" = var.subnet_tag_cluster_value
+    (var.subnet_tag_karpenter_discovery_key)                         = local.cluster_tag_value
+  })
+}
+
 resource "aws_route_table" "public" {
+  count  = length(var.public_subnet_cidrs) > 0 ? 1 : 0
   vpc_id = aws_vpc.main.id
 
   route {
     cidr_block = var.public_route_destination_cidr_block
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.main[0].id
   }
 
   tags = merge(var.tags, {
@@ -51,8 +65,54 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table_association" "public" {
-  count = length(var.availability_zones)
+  count = length(var.public_subnet_cidrs)
 
   subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
+  route_table_id = aws_route_table.public[0].id
+}
+
+resource "aws_route_table" "private" {
+  count  = length(var.private_subnet_cidrs) > 0 ? 1 : 0
+  vpc_id = aws_vpc.main.id
+
+  dynamic "route" {
+    for_each = var.enable_nat_gateway ? [1] : []
+    content {
+      cidr_block     = "0.0.0.0/0"
+      nat_gateway_id = aws_nat_gateway.main[0].id
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name}${var.private_route_table_name_suffix}"
+  })
+}
+
+resource "aws_route_table_association" "private" {
+  count = length(var.private_subnet_cidrs)
+
+  subnet_id      = aws_subnet.private[count.index].id
+  route_table_id = aws_route_table.private[0].id
+}
+
+resource "aws_eip" "nat" {
+  count  = var.enable_nat_gateway ? 1 : 0
+  domain = "vpc"
+
+  tags = merge(var.tags, {
+    Name = "${var.name}${var.nat_eip_name_suffix}"
+  })
+}
+
+resource "aws_nat_gateway" "main" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
+
+  tags = merge(var.tags, {
+    Name = "${var.name}${var.nat_gateway_name_suffix}"
+  })
+
+  depends_on = [aws_internet_gateway.main]
 }

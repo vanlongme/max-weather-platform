@@ -1,44 +1,271 @@
-# Example tfvars for the EKS module.
-# Most consumers should call this module from an env composition (see infra/envs/poc/).
-# These values mirror the env defaults so the module can also be invoked standalone.
+# --- Core Configuration ---
+name       = "poc-max-weather"
+vpc_id     = "vpc-12345678"
+subnet_ids = ["subnet-11111111", "subnet-22222222"] # Private subnets for fully-private cluster
 
-cluster_name    = "max-weather"
-cluster_version = "1.34"
+# Fully-private cluster (recommended): endpoint_public_access = false, allowed_cidrs = [].
+# Public API exposure: set endpoint_public_access = true AND allowed_cidrs = ["IP/32"].
+# allowed_cidrs = ["203.0.113.10/32"]
+# cluster_version           = "1.34"
+# cluster_name_suffix       = "-cluster"
+# node_group_name_separator = "-"
 
-vpc_id     = "vpc-REPLACE"
-subnet_ids = ["subnet-REPLACE-AZ1", "subnet-REPLACE-AZ2", "subnet-REPLACE-AZ3"]
+# --- KMS Configuration ---
+# kms_deletion_window_days = 30
+# kms_enable_key_rotation  = true
 
-allowed_cidrs          = ["YOUR_PUBLIC_IP/32"]
-operator_principal_arn = "arn:aws:iam::REPLACE_ACCOUNT_ID:user/REPLACE_OPERATOR"
-jenkins_role_arn       = "arn:aws:iam::REPLACE_ACCOUNT_ID:role/max-weather-jenkins" # optional; "" omits the jenkins access entry (phase 1)
-# jenkins_access_namespaces = ["weather-staging", "weather-prod"] # default; override to grant Edit on additional namespaces
+# --- Cluster Configuration ---
+# authentication_mode = "API"  # Default. ONE-WAY transitions: CONFIG_MAP -> API_AND_CONFIG_MAP -> API (cannot downgrade)
+# enable_cluster_creator_admin_permissions = false
+# service_ipv4_cidr                        = null
+# endpoint_public_access                   = false  # POC default = fully private
+# endpoint_private_access                  = true
 
-eks_managed_node_groups = {
-  general = {
-    instance_types = ["t3.medium"]
-    min_size       = 2
-    max_size       = 10
-    desired_size   = 2
-    labels         = { role = "general" }
-  }
-  # Example second pool:
-  # spot = {
-  #   instance_types = ["t3.large", "t3a.large"]
-  #   capacity_type  = "SPOT"
-  #   min_size       = 0
-  #   max_size       = 20
-  #   desired_size   = 0
-  #   labels         = { role = "spot" }
-  #   taints         = { spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" } }
-  # }
-}
+# --- Lifecycle Protection ---
+# enable_deletion_protection = false  # Set true in production to prevent accidental destroy
+# cluster_upgrade_support_type = "STANDARD"  # STANDARD (recommended, no extra cost) or EXTENDED (paid 12-month window)
+# enable_zonal_shift = false  # Enable ARC zonal shift for AZ failover
 
-# eks_managed_node_group_defaults = { attach_cluster_primary_security_group = false }
-# cluster_addons                  — defaults are usually fine
-# access_entries                  — extra entries beyond operator + jenkins
+# --- EKS Auto Mode (Opt-In) ---
+# enable_auto_mode     = false  # When true: delegates node provisioning to AWS; disables managed node groups
+# auto_mode_node_pools = ["general-purpose", "system"]  # Only used when enable_auto_mode = true
 
+# --- Node Repair ---
+# node_repair_enabled = false  # Module-wide. Set per node group via enable_node_repair = true in eks_managed_node_groups
+
+# --- Logging Configuration ---
+# enabled_log_types  = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+# log_retention_days = 7
+
+# --- Access Configuration ---
+# Caller supplies the FULL access_entries map. Module ships zero built-ins.
+# access_entries = {
+#   operator = {
+#     principal_arn = "arn:aws:iam::123456789012:role/admin-role"
+#     policy_associations = {
+#       admin = {
+#         policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+#         access_scope = { type = "cluster" }
+#       }
+#     }
+#   }
+#   readonly = {
+#     principal_arn = "arn:aws:iam::123456789012:role/AuditReadOnly"
+#     policy_associations = {
+#       view = {
+#         policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+#         access_scope = { type = "cluster" }
+#       }
+#     }
+#   }
+# }
+# partition_placeholder = "__AWS_PARTITION__"  # used by karpenter_node_additional_policies
+
+# --- IRSA (Legacy) ---
+# enable_irsa = true
+
+# --- Node Groups ---
+# Note: Supplied map REPLACES the default 'infra' group.
+# Module ALWAYS creates a per-group aws_launch_template — native disk_size is
+# not used; configure volumes via block_device_mappings (volume_size, volume_type,
+# iops, throughput, encrypted, delete_on_termination, kms_key_id, device_name).
+# iops + throughput only apply to volume_type io1/io2/gp3. Bottlerocket uses a
+# dual-volume layout: /dev/xvda = OS root (small, ~4GiB), /dev/xvdb = data
+# partition (workload-sized).
+# ami_release_version = null (default) → EKS picks the latest AMI release
+# matching the cluster K8s version. Pin to a specific release only when
+# reproducibility outweighs auto-patching.
+# eks_managed_node_groups = {
+#   infra = {
+#     instance_types      = ["t3.medium"]
+#     ami_type            = "BOTTLEROCKET_x86_64"
+#     ami_release_version = null
+#     min_size            = 1
+#     max_size            = 10
+#     desired_size        = 1
+#     labels              = { role = "infra" }
+#     taints = {
+#       infra = { key = "role", value = "infra", effect = "NO_SCHEDULE" }
+#     }
+#     block_device_mappings = {
+#       root = {
+#         device_name = "/dev/xvda"
+#         volume_size = 4
+#         volume_type = "gp3"
+#       }
+#       data = {
+#         device_name = "/dev/xvdb"
+#         volume_size = 50
+#         volume_type = "gp3"
+#         iops        = 3000
+#         throughput  = 125
+#       }
+#     }
+#     # Optional Bottlerocket TOML user_data. ami_type must start with
+#     # BOTTLEROCKET_* — otherwise ignored (EKS adds AL2/AL2023 bootstrap shim).
+#     # REPLACE semantics: supplying a value fully replaces the module's
+#     # local.default_bottlerocket_user_data baseline (no merge).
+#     # NEVER set settings.kubernetes.{cluster-name, api-server,
+#     # cluster-certificate, cluster-dns-ip, kube-reserved} — pluto/schnauzer
+#     # auto-derive at first boot; overriding breaks bootstrap.
+#     # bottlerocket_user_data = <<-TOML
+#     #   [settings.host-containers.admin]
+#     #   enabled = false
+#     #
+#     #   [settings.kubernetes]
+#     #   container-log-max-size = "50Mi"
+#     #   pod-pids-limit = 2048
+#     #
+#     #   [settings.kernel.sysctl]
+#     #   "vm.max_map_count" = "524288"
+#     # TOML
+#   }
+# }
+# eks_managed_node_group_defaults = {
+#   attach_cluster_primary_security_group = false
+#   enable_monitoring                     = true
+#   use_latest_ami_release_version        = false
+# }
+# cluster_autoscaler_enabled_tag_key      = "k8s.io/cluster-autoscaler/enabled"
+# cluster_autoscaler_enabled_tag_value    = "true"
+# cluster_autoscaler_owned_tag_key_prefix = "k8s.io/cluster-autoscaler/"
+# cluster_autoscaler_owned_tag_value      = "owned"
+
+# --- Fargate Profiles ---
+# fargate_profiles = {
+#   kube-system = {
+#     selectors = [{ namespace = "kube-system" }]
+#   }
+# }
+
+# --- Addons & CSI Drivers ---
+# 3-phase bootstrap (depends_on_node_group flag controls phase):
+#   Phase 1 PRE-NODE  (flag false/absent): vpc-cni → carries custom-networking env vars,
+#                                          MUST exist before kubelet registers nodes.
+#   Phase 2 NODES     : aws_eks_node_group.this launches (depends_on aws_eks_addon.this).
+#   Phase 3 POST-NODE (flag true)         : kube-proxy, eks-pod-identity-agent, coredns
+#                                           → need running nodes for DaemonSet/Deployment scheduling.
+# Pin addons onto the infra node group:
+#   * CoreDNS (Deployment): nodeSelector role=infra + matching toleration.
+#   * vpc-cni / eks-pod-identity-agent (DaemonSets):
+#     tolerations=[{operator: Exists}] so they land on every tainted node.
+#   * kube-proxy: addon schema does NOT accept `tolerations`; the DaemonSet
+#     ships with `tolerations: [{operator: Exists}]` natively.
+# Supplying cluster_addons REPLACES the default map — re-declare every entry.
+# Per-addon `configuration_values` is a raw JSON STRING (variable defaults
+# cannot call jsonencode()).
+# cluster_addons = {
+#   vpc-cni = {
+#     resolve_conflicts_on_create = "OVERWRITE"
+#     resolve_conflicts_on_update = "OVERWRITE"
+#     most_recent                 = false
+#     # When enable_vpc_cni_custom_networking = true, module deep-merges
+#     # AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG=true + ENI_CONFIG_LABEL_DEF into env
+#     # while preserving caller tolerations.
+#     configuration_values = "{\"env\":{},\"tolerations\":[{\"operator\":\"Exists\"}]}"
+#   }
+#   kube-proxy = {
+#     resolve_conflicts_on_create = "OVERWRITE"
+#     resolve_conflicts_on_update = "OVERWRITE"
+#     most_recent                 = false
+#     depends_on_node_group       = true
+#   }
+#   eks-pod-identity-agent = {
+#     resolve_conflicts_on_create = "OVERWRITE"
+#     resolve_conflicts_on_update = "OVERWRITE"
+#     most_recent                 = false
+#     depends_on_node_group       = true
+#     configuration_values        = "{\"tolerations\":[{\"operator\":\"Exists\"}]}"
+#   }
+#   coredns = {
+#     resolve_conflicts_on_create = "OVERWRITE"
+#     resolve_conflicts_on_update = "OVERWRITE"
+#     most_recent                 = false
+#     depends_on_node_group       = true
+#     configuration_values        = "{\"nodeSelector\":{\"role\":\"infra\"},\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}"
+#   }
+# }
+# enable_ebs_csi_addon  = true
+# enable_efs_csi_addon  = true
+# ebs_csi_addon_version = null
+# efs_csi_addon_version = null
+#
+# EBS/EFS CSI default configuration_values pin the controller Deployment onto
+# the infra node group (nodeSelector role=infra + matching toleration) and
+# tolerate any taint on the node DaemonSet so it lands on every node. Supplying
+# these vars fully REPLACES the default JSON (no merge). Set to null to leave
+# addon defaults untouched.
+# ebs_csi_addon_configuration_values = "{\"controller\":{\"nodeSelector\":{\"role\":\"infra\"},\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]},\"node\":{\"tolerations\":[{\"operator\":\"Exists\"}]}}"
+# efs_csi_addon_configuration_values = "{\"controller\":{\"nodeSelector\":{\"role\":\"infra\"},\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]},\"node\":{\"tolerations\":[{\"operator\":\"Exists\"}]}}"
+
+# --- Karpenter Configuration ---
+# karpenter_namespace                        = "kube-system"
+# karpenter_service_account                  = "karpenter"
+# karpenter_create_pod_identity_association  = true
+# karpenter_create_instance_profile          = true
+# karpenter_iam_role_name_suffix             = "-karpenter-controller-role"
+# karpenter_iam_policy_name_suffix           = "-karpenter-controller-policy"
+# karpenter_iam_role_use_name_prefix         = false
+# karpenter_iam_policy_use_name_prefix       = false
+# karpenter_node_iam_role_name_suffix        = "-karpenter-node-role"
+# karpenter_node_iam_role_use_name_prefix    = false
+# karpenter_queue_name_suffix                = "-karpenter-queue"
+# karpenter_discovery_tag_key                = "karpenter.sh/discovery"
+# karpenter_node_additional_policies = {
+#   AmazonSSMManagedInstanceCore = "arn:__AWS_PARTITION__:iam::aws:policy/AmazonSSMManagedInstanceCore"
+# }
+
+# --- KMS (Bring-Your-Own opt-in) ---
+# Default: module creates aws_kms_key.cluster + aws_kms_key.ebs (+ aliases + EBS key policy).
+# To consume existing CMKs instead, set the ARN(s) below. Module skips creation entirely
+# when set. For EBS BYO, caller MUST grant module-created node + karpenter_node IAM roles
+# (outputs.node_iam_role_arn / outputs.karpenter_node_iam_role_arn) the actions:
+# Decrypt, GenerateDataKey*, CreateGrant, DescribeKey on the supplied key.
+# existing_cluster_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/abc-..."
+# existing_ebs_kms_key_arn     = "arn:aws:kms:us-east-1:123456789012:key/def-..."
+
+# --- Node Security Group Rules (REPLACE override) ---
+# Default ingress: cluster→node 443/10250/4443/6443/8443/9443 + self CoreDNS 53 tcp+udp
+# + self ephemeral 1025-65535. Default egress: 0.0.0.0/0 all.
+# Setting ingress and/or egress fully REPLACES the matching default map (no merge).
+# node_security_group_additional_rules = {
+#   ingress = {
+#     cluster_api_to_node = { description = "Cluster API to node 443", source = "cluster", ip_protocol = "tcp", from_port = 443, to_port = 443 }
+#     cluster_kubelet     = { description = "Cluster API to kubelet",  source = "cluster", ip_protocol = "tcp", from_port = 10250, to_port = 10250 }
+#     self_coredns_tcp    = { description = "Node CoreDNS tcp",         source = "self",    ip_protocol = "tcp", from_port = 53, to_port = 53 }
+#     self_coredns_udp    = { description = "Node CoreDNS udp",         source = "self",    ip_protocol = "udp", from_port = 53, to_port = 53 }
+#     self_ephemeral      = { description = "Node ephemeral",           source = "self",    ip_protocol = "tcp", from_port = 1025, to_port = 65535 }
+#   }
+#   egress = {
+#     all_egress = { description = "Node all egress", ip_protocol = "-1", cidr_ipv4 = "0.0.0.0/0" }
+#   }
+# }
+
+# --- Pod Identity Associations ---
+# pod_identity_associations = {
+#   external-secrets = {
+#     namespace       = "external-secrets"
+#     service_account = "external-secrets"
+#     role_arn        = "arn:aws:iam::123456789012:role/external-secrets-role"
+#   }
+# }
+
+# --- VPC CNI Custom Networking ("2nd networking") ---
+# Module injects AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG=true + ENI_CONFIG_LABEL_DEF=topology.kubernetes.io/zone
+# into vpc-cni addon AND applies one ENIConfig CR per AZ via internal kubectl provider.
+# Caller MUST: (1) provision a 2nd VPC CIDR + per-AZ pod subnets (see modules/networking),
+# (2) ensure cluster API server is reachable from the Terraform runner (PrivateLink / VPC peering / public endpoint),
+# (3) pass pod_subnet_ids_by_az keyed by AZ name (matches topology.kubernetes.io/zone).
+# enable_vpc_cni_custom_networking = false
+# pod_subnet_ids_by_az = {
+#   "us-east-1a" = "subnet-aaaaaaaa"
+#   "us-east-1b" = "subnet-bbbbbbbb"
+#   "us-east-1c" = "subnet-cccccccc"
+# }
+
+# --- Tags ---
 tags = {
-  Project     = "max-weather"
   Environment = "poc"
+  Project     = "max-weather"
   ManagedBy   = "terraform"
 }
