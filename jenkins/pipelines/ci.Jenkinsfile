@@ -13,11 +13,11 @@ metadata:
 spec:
   serviceAccountName: jenkins-agent
   nodeSelector:
-    provisioner: karpenter
+    role: infra
   tolerations:
-    - key: karpenter.sh/provisioned
+    - key: role
       operator: Equal
-      value: "true"
+      value: infra
       effect: NoSchedule
   restartPolicy: Never
   containers:

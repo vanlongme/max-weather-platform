@@ -81,6 +81,17 @@ resource "helm_release" "jenkins" {
   })]
 }
 
+# Standalone PVC for trivy vulnerability DB cache, mounted by ephemeral
+# kubernetes-plugin agent pods (claimName: trivy-db-cache in ci.Jenkinsfile).
+# The jenkinsci/jenkins Helm chart does NOT support creating extra PVCs
+# outside the controller STS (persistence.volumes only adds volumes to the
+# controller pod, not new PVCs). RWO accepted — POC runs one CI build at a
+# time; parallel builds would block on the volume.
+resource "kubectl_manifest" "jenkins_trivy_db_cache_pvc" {
+  yaml_body  = file("${path.module}/values/jenkins-trivy-db-cache-pvc.yaml")
+  depends_on = [helm_release.jenkins]
+}
+
 resource "helm_release" "keda" {
   count            = var.enable_keda ? 1 : 0
   name             = "keda"
