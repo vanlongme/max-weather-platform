@@ -345,6 +345,18 @@ module "eks" {
 ## Cross-References
 - `envs/poc/` — Integration test composition wiring every module input.
 
+## Deviations from upstream canonical
+
+**Branch**: `feat/private-cluster-hardening` | **Date**: 2026-05-26
+
+### IMDSv2 enforcement on MNG launch template
+
+- **File**: `launch_template.tf` — `resource "aws_launch_template" "node"`
+- **Change**: Added `metadata_options` block with `http_tokens = "required"`, `http_put_response_hop_limit = 1`, `instance_metadata_tags = "enabled"`
+- **Rationale**: MNG instances ship with IMDSv1 enabled by default. SSRF + container-escape → IMDS credential exfiltration is a known attack vector. MNG addon controllers (CoreDNS, kube-proxy, VPC CNI, EBS/EFS CSI, AWS LB Controller, KEDA, Karpenter, fluent-bit, cluster-autoscaler) use IRSA via OIDC — none require Pod Identity Agent's hop-2 path, so hop=1 is safe here.
+- **ADR cross-reference**: Karpenter EC2NodeClass retains `httpPutResponseHopLimit: 2` because Karpenter-provisioned nodes host application pods that use Pod Identity (Pod Identity Agent needs hop=2 to relay credentials via UDS). Split posture: MNG hop=1 (stronger), Karpenter hop=2 (required for Pod Identity).
+- **Upstream status**: Not yet in canonical upstream `terraform-modules/`. If upstream adds IMDSv2 enforcement, remove this section and reconcile.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

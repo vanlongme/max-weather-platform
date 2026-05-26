@@ -15,6 +15,13 @@ resource "aws_launch_template" "node" {
     enabled = each.value.enable_monitoring
   }
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
+  }
+
   dynamic "block_device_mappings" {
     for_each = each.value.block_device_mappings
     content {

@@ -437,3 +437,74 @@ variable "lambda_functions" {
   }))
   default = {}
 }
+
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets (one per AZ). Used for EKS workload nodes and Karpenter-provisioned nodes."
+  type        = list(string)
+  default     = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
+}
+
+variable "enable_nat_gateway" {
+  description = "Whether to create a NAT Gateway for private subnet egress. Single NAT in AZ-a (AZ-a failure breaks egress — accepted for POC)."
+  type        = bool
+  default     = true
+}
+
+variable "enable_vpc_endpoints" {
+  description = "Whether to create VPC interface endpoints. Enables private AWS API access without traversing the public internet."
+  type        = bool
+  default     = true
+}
+
+variable "enable_s3_gateway_endpoint" {
+  description = "Whether to create an S3 gateway endpoint. Reduces NAT Gateway data transfer costs for S3 traffic (ECR layer pulls, tfstate)."
+  type        = bool
+  default     = true
+}
+
+variable "vpc_endpoint_private_dns_enabled" {
+  description = "Whether to enable private DNS for VPC interface endpoints. Required for SDK/CLI clients to resolve AWS service hostnames to private IPs."
+  type        = bool
+  default     = true
+}
+
+variable "vpc_interface_endpoints" {
+  description = "List of AWS service names for VPC interface endpoints. Comprehensive set covers all services used by EKS workloads."
+  type        = list(string)
+  default = [
+    "ec2",
+    "ecr.api",
+    "ecr.dkr",
+    "sts",
+    "logs",
+    "eks",
+    "eks-auth",
+    "ssm",
+    "ssmmessages",
+    "ec2messages",
+    "secretsmanager",
+    "kms",
+    "autoscaling",
+    "elasticloadbalancing",
+    "lambda",
+    "monitoring",
+  ]
+}
+
+variable "endpoint_private_access" {
+  description = "Whether the EKS API server endpoint is reachable from inside the VPC via the private endpoint."
+  type        = bool
+  default     = true
+}
+
+variable "endpoint_public_access" {
+  description = "Whether the EKS API server endpoint is reachable from the public internet (restricted further by allowed_cidrs). Kept true for hybrid POC posture; fully-private deferred to manual hardening."
+  type        = bool
+  default     = true
+}
+
+variable "enabled_log_types" {
+  description = "EKS control-plane log types to ship to CloudWatch Logs. All 5 types enabled for security hardening and audit."
+  type        = list(string)
+  default     = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+}

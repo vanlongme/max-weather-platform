@@ -1,4 +1,9 @@
 ###############################################################################
+# Hybrid-private cluster topology: 2-tier VPC (public toolchain + private EKS workloads).
+# Hybrid EKS endpoint: private_access=true + public_access=true with operator CIDR allowlist.
+# 16 interface VPCEs + S3 gateway for private AWS API access. Single NAT GW in us-east-1a.
+###############################################################################
+#
 # Required variables — copy this file to terraform.tfvars and fill in.
 #
 # Resource names are built from `master_prefix = "<environment>-<project>"`,
@@ -8,7 +13,8 @@
 ###############################################################################
 aws_region    = "us-east-1"
 project       = "max-weather"
-allowed_cidrs = ["YOUR_PUBLIC_IP/32"]
+# WARNING: 0.0.0.0/0 is REJECTED by module validation. Replace YOUR_OPERATOR_IP with your actual /32.
+allowed_cidrs = ["YOUR_OPERATOR_IP/32"]
 
 # ###############################################################################
 # # Optional overrides — uncomment to customize. Defaults preserve the original
@@ -27,11 +33,28 @@ allowed_cidrs = ["YOUR_PUBLIC_IP/32"]
 # # log_retention_days  = 7
 
 # ###############################################################################
-# # Networking — VPC CIDR + AZ / public subnet layout
+# # Networking — VPC CIDR + AZ / public + private subnet layout
 # ###############################################################################
 # # vpc_cidr            = "10.20.0.0/16"
 # # availability_zones  = ["us-east-1a", "us-east-1b", "us-east-1c"]
-# # public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
+public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
+# private_subnet_cidrs             = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
+# enable_nat_gateway               = true
+# enable_vpc_endpoints             = true
+# enable_s3_gateway_endpoint       = true
+# vpc_endpoint_private_dns_enabled = true
+# vpc_interface_endpoints = [
+#   "ec2", "ecr.api", "ecr.dkr", "sts", "logs", "eks", "eks-auth",
+#   "ssm", "ssmmessages", "ec2messages", "secretsmanager", "kms",
+#   "autoscaling", "elasticloadbalancing", "lambda", "monitoring",
+# ]
+
+# ###############################################################################
+# # EKS endpoint posture + control-plane logging (hybrid-private defaults)
+# ###############################################################################
+# # endpoint_private_access = true    # enabled: private VPC endpoint active
+# # endpoint_public_access  = true    # enabled: operator CIDR allowlisted above
+# # enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
 # ###############################################################################
 # # EKS cluster add-ons — defaults: CoreDNS, kube-proxy, VPC CNI, Pod Identity

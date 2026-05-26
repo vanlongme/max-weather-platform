@@ -98,6 +98,12 @@ Pod subnets share the private route table (`aws_route_table_association.pod`), s
 
 Complete invocation: [`terraform.tfvars.example`](./terraform.tfvars.example).
 
+## Deviations from upstream canonical
+
+**Branch**: `feat/private-cluster-hardening` | **Date**: 2026-05-26
+
+No deviations in this branch. All features used in this environment (private subnets, NAT Gateway, VPC interface endpoints, S3 gateway endpoint, VPCE security group, `kubernetes.io/role/internal-elb` subnet tagging) are upstream-canonical and were merely under-utilized in prior caller configurations. The module source is byte-identical to the canonical upstream version.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
