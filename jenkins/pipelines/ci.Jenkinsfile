@@ -74,6 +74,27 @@ spec:
         limits:
           cpu: 2000m
           memory: 4Gi
+    # Separate kaniko container for the push stage. The Build stage's kaniko
+    # executor wipes its own rootfs at end of run ("Deleting filesystem..."),
+    # so a second sh exec in the same container has no shell. Dedicated
+    # container = fresh rootfs for the cache-enabled push re-run.
+    - name: kaniko-push
+      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      command: ["sleep"]
+      args: ["infinity"]
+      tty: true
+      env:
+        - name: AWS_SDK_LOAD_CONFIG
+          value: "true"
+        - name: AWS_EC2_METADATA_DISABLED
+          value: "false"
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
     - name: trivy
       image: aquasec/trivy:latest
       command: ["sleep"]
@@ -224,7 +245,7 @@ spec:
             def sevFlags = threshold.split(',').collect { "--severity ${it.trim()}" }.join(' ')
             sh """
               set +e
-              semgrep ci \
+              semgrep scan \
                 --metrics=off \
                 --config p/nodejs \
                 --config p/owasp-top-ten \
@@ -232,6 +253,7 @@ spec:
                 --json \
                 --output semgrep-report.json \
                 ${sevFlags} \
+                --error \
                 app/src/
               SEMGREP_EXIT=\$?
               set -e
@@ -363,11 +385,12 @@ spec:
 
     stage('Push Image to ECR') {
       steps {
-        container('kaniko') {
+        container('kaniko-push') {
           sh '''
             set -eu
-            # Re-run kaniko WITH push. Layer cache + --use-new-run means this
-            # is effectively a push-only operation, not a rebuild.
+            # Re-run kaniko in a fresh container (kaniko-push) WITH push and cache.
+            # The Build stage's kaniko container wipes its own rootfs mid-run,
+            # so the push must execute in a separate sidecar.
             /kaniko/executor \
               --context=dir://${WORKSPACE}/app \
               --dockerfile=Dockerfile \
