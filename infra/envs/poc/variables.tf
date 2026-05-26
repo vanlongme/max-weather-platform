@@ -64,6 +64,18 @@ variable "eks_managed_node_groups" {
         infra = { key = "role", value = "infra", effect = "NO_SCHEDULE" }
       }
     }
+    jenkins = {
+      instance_types = ["m6i.large"]
+      ami_type       = "BOTTLEROCKET_x86_64"
+      min_size       = 1
+      max_size       = 2
+      desired_size   = 1
+      labels         = { role = "jenkins" }
+      taints = {
+        jenkins = { key = "role", value = "jenkins", effect = "NO_SCHEDULE" }
+      }
+      tags = { NodeGroup = "jenkins-public" }
+    }
   }
 }
 
@@ -469,26 +481,26 @@ variable "vpc_endpoint_private_dns_enabled" {
 }
 
 variable "vpc_interface_endpoints" {
-  description = "List of AWS service names for VPC interface endpoints. Comprehensive set covers all services used by EKS workloads."
-  type        = list(string)
-  default = [
-    "ec2",
-    "ecr.api",
-    "ecr.dkr",
-    "sts",
-    "logs",
-    "eks",
-    "eks-auth",
-    "ssm",
-    "ssmmessages",
-    "ec2messages",
-    "secretsmanager",
-    "kms",
-    "autoscaling",
-    "elasticloadbalancing",
-    "lambda",
-    "monitoring",
-  ]
+  description = "Map of interface VPC endpoints to create. Key = short name (used in resource Name tag); value = service suffix appended to com.amazonaws.<region>. Supplying this map REPLACES the module default entirely — re-declare all entries you want kept."
+  type        = map(string)
+  default = {
+    ec2                  = "ec2"
+    ecr_api              = "ecr.api"
+    ecr_dkr              = "ecr.dkr"
+    sts                  = "sts"
+    logs                 = "logs"
+    eks                  = "eks"
+    eks_auth             = "eks-auth"
+    ssm                  = "ssm"
+    ssmmessages          = "ssmmessages"
+    ec2messages          = "ec2messages"
+    secretsmanager       = "secretsmanager"
+    kms                  = "kms"
+    autoscaling          = "autoscaling"
+    elasticloadbalancing = "elasticloadbalancing"
+    lambda               = "lambda"
+    monitoring           = "monitoring"
+  }
 }
 
 variable "endpoint_private_access" {

@@ -10,12 +10,18 @@ module "cloudwatch" {
 module "networking" {
   source = "../../modules/networking"
 
-  name                = local.master_prefix
-  eks_cluster_name    = "${local.master_prefix}-cluster"
-  vpc_cidr            = var.vpc_cidr
-  availability_zones  = var.availability_zones
-  public_subnet_cidrs = var.public_subnet_cidrs
-  tags                = local.common_tags
+  name                             = local.master_prefix
+  eks_cluster_name                 = "${local.master_prefix}-cluster"
+  vpc_cidr                         = var.vpc_cidr
+  availability_zones               = var.availability_zones
+  public_subnet_cidrs              = var.public_subnet_cidrs
+  private_subnet_cidrs             = var.private_subnet_cidrs
+  enable_nat_gateway               = var.enable_nat_gateway
+  enable_vpc_endpoints             = var.enable_vpc_endpoints
+  vpc_interface_endpoints          = var.vpc_interface_endpoints
+  enable_s3_gateway_endpoint       = var.enable_s3_gateway_endpoint
+  vpc_endpoint_private_dns_enabled = var.vpc_endpoint_private_dns_enabled
+  tags                             = local.common_tags
 }
 
 module "ecr" {
@@ -87,10 +93,14 @@ module "eks" {
   name            = local.master_prefix
   cluster_version = var.eks_cluster_version
   vpc_id          = module.networking.vpc_id
-  subnet_ids      = module.networking.public_subnet_ids
-  allowed_cidrs   = var.allowed_cidrs
+  subnet_ids      = module.networking.private_subnet_ids
 
-  eks_managed_node_groups         = var.eks_managed_node_groups
+  allowed_cidrs           = var.allowed_cidrs
+  endpoint_private_access = var.endpoint_private_access
+  endpoint_public_access  = var.endpoint_public_access
+  enabled_log_types       = var.enabled_log_types
+
+  eks_managed_node_groups         = local.eks_managed_node_groups_with_subnets
   eks_managed_node_group_defaults = var.eks_managed_node_group_defaults
   cluster_addons                  = var.cluster_addons
   access_entries                  = local.eks_access_entries_effective

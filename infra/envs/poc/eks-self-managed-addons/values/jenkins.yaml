@@ -189,17 +189,24 @@ controller:
       failureThreshold: 5
 
   nodeSelector:
-    role: infra
+    role: jenkins
   tolerations:
     - key: role
       operator: Equal
-      value: infra
+      value: jenkins
       effect: NoSchedule
 
 agent:
   # Static agent pool disabled — kubernetes plugin spins ephemeral pods
   # per build under the same ServiceAccount.
   enabled: false
+  nodeSelector:
+    role: jenkins
+  tolerations:
+    - key: role
+      operator: Equal
+      value: jenkins
+      effect: NoSchedule
 
 persistence:
   enabled: true
