@@ -57,44 +57,30 @@ spec:
         limits:
           cpu: 500m
           memory: 512Mi
-    - name: kaniko
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
-      command: ["sleep"]
-      args: ["infinity"]
+    # Docker-in-Docker (DinD) replaces kaniko for ~3-5x faster builds:
+    # parallel layer download, native build cache, no rootfs wipe between
+    # build/push. Single container handles build → save tar (for trivy)
+    # → push (after scan passes). Requires privileged for /var/lib/docker.
+    - name: docker
+      image: docker:24-dind
+      command: ["dockerd-entrypoint.sh"]
+      args: ["--host=unix:///var/run/docker.sock", "--storage-driver=overlay2"]
       tty: true
+      securityContext:
+        privileged: true
       env:
-        - name: AWS_SDK_LOAD_CONFIG
-          value: "true"
-        - name: AWS_EC2_METADATA_DISABLED
-          value: "false"
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
       resources:
         requests:
-          cpu: 250m
-          memory: 512Mi
+          cpu: 500m
+          memory: 1Gi
         limits:
           cpu: 2000m
           memory: 4Gi
-    # Separate kaniko container for the push stage. The Build stage's kaniko
-    # executor wipes its own rootfs at end of run ("Deleting filesystem..."),
-    # so a second sh exec in the same container has no shell. Dedicated
-    # container = fresh rootfs for the cache-enabled push re-run.
-    - name: kaniko-push
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
-      command: ["sleep"]
-      args: ["infinity"]
-      tty: true
-      env:
-        - name: AWS_SDK_LOAD_CONFIG
-          value: "true"
-        - name: AWS_EC2_METADATA_DISABLED
-          value: "false"
-      resources:
-        requests:
-          cpu: 250m
-          memory: 512Mi
-        limits:
-          cpu: 2000m
-          memory: 4Gi
+      volumeMounts:
+        - name: docker-storage
+          mountPath: /var/lib/docker
     - name: trivy
       image: aquasec/trivy:latest
       command: ["sleep"]
@@ -143,6 +129,8 @@ spec:
     - name: trivy-db-cache
       persistentVolumeClaim:
         claimName: trivy-db-cache
+    - name: docker-storage
+      emptyDir: {}
 '''
     }
   }
@@ -316,26 +304,24 @@ spec:
 
     stage('Build Container Image (local tarball)') {
       steps {
-        container('kaniko') {
+        container('docker') {
           sh '''
             set -eu
-            # Build image into a workspace tarball — NO push yet.
-            # Trivy scans the tarball in the next stage; only on pass does the
-            # subsequent push stage re-run kaniko with --cache=true to hit ECR
-            # layer cache (cache:sha256:* blobs) and skip already-built layers.
-            #
-            # No --cache here: kaniko rejects --cache with --no-push unless
-            # --cache-repo is set; we deliberately bypass the layer cache on
-            # the gate pass so a failed scan cannot poison the registry cache.
-            /kaniko/executor \
-              --context=dir://${WORKSPACE}/app \
-              --dockerfile=Dockerfile \
-              --destination=${APP_REPO}:${GIT_SHA} \
-              --no-push \
-              --tar-path=${WORKSPACE}/image.tar \
-              --snapshot-mode=redo \
-              --use-new-run \
-              --verbosity=info
+            # Wait for dockerd to come up inside the sidecar.
+            for i in $(seq 1 30); do
+              if docker info >/dev/null 2>&1; then break; fi
+              echo "waiting for dockerd... ${i}/30"
+              sleep 2
+            done
+            docker version
+            # Build with BuildKit for parallel layer download + better caching.
+            DOCKER_BUILDKIT=1 docker build \
+              --tag ${APP_REPO}:${GIT_SHA} \
+              --file ${WORKSPACE}/app/Dockerfile \
+              ${WORKSPACE}/app
+            # Save to tar for trivy --input scan in next stage.
+            # Image stays in local docker daemon for the push stage.
+            docker save -o ${WORKSPACE}/image.tar ${APP_REPO}:${GIT_SHA}
             ls -lh ${WORKSPACE}/image.tar
           '''
         }
@@ -385,21 +371,21 @@ spec:
 
     stage('Push Image to ECR') {
       steps {
-        container('kaniko-push') {
+        // Pod Identity gives the 'aws' sidecar credentials to fetch an ECR
+        // auth token; pipe the password into the docker sidecar's CLI which
+        // already has the locally-built image from the build stage.
+        container('aws') {
           sh '''
             set -eu
-            # Re-run kaniko in a fresh container (kaniko-push) WITH push and cache.
-            # The Build stage's kaniko container wipes its own rootfs mid-run,
-            # so the push must execute in a separate sidecar.
-            /kaniko/executor \
-              --context=dir://${WORKSPACE}/app \
-              --dockerfile=Dockerfile \
-              --destination=${APP_REPO}:${GIT_SHA} \
-              --snapshot-mode=redo \
-              --use-new-run \
-              --cache=true \
-              --cache-ttl=24h \
-              --verbosity=info
+            aws ecr get-login-password --region "$AWS_REGION" > .ecr-token
+          '''
+        }
+        container('docker') {
+          sh '''
+            set -eu
+            cat .ecr-token | docker login --username AWS --password-stdin "${ECR_HOST}"
+            docker push ${APP_REPO}:${GIT_SHA}
+            rm -f .ecr-token
           '''
         }
       }
