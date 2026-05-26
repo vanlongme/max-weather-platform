@@ -112,5 +112,3 @@ resource "kubectl_manifest" "karpenter_nodepool_default" {
   yaml_body  = file("${path.module}/values/karpenter-nodepool.yaml")
   depends_on = [kubectl_manifest.karpenter_ec2nodeclass_default]
 }
-
-
