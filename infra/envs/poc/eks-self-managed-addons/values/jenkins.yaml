@@ -171,6 +171,15 @@ controller:
       # jenkins/vars/ of the platform repo) to all pipelines via
       # `@Library('max-weather-shared') _`. `implicit: false` keeps the
       # import explicit per Jenkinsfile.
+      #
+      # `libraryPath: "jenkins/"` tells the Pipeline Groovy Libraries plugin
+      # to treat the `jenkins/` subdirectory of the cloned repo as the
+      # library root — i.e. resolve `vars/`, `src/`, `resources/` under
+      # `jenkins/` instead of the repo root. Required because this monorepo
+      # keeps the shared library co-located with the rest of the Jenkins
+      # config under `jenkins/`. Without it the library load fails with
+      # `Library max-weather-shared expected to contain at least one of src
+      # or vars directories`.
       security-library: |
         unclassified:
           globalLibraries:
@@ -180,6 +189,7 @@ controller:
                 implicit: false
                 retriever:
                   modernSCM:
+                    libraryPath: "jenkins/"
                     scm:
                       git:
                         remote: "https://github.com/vanlongme/max-weather-platform.git"
