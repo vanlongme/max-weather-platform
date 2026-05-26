@@ -111,6 +111,23 @@ locals {
             ]
             Resource = "*"
           },
+          {
+            Sid    = "CosignKMSAccess"
+            Effect = "Allow"
+            Action = [
+              "kms:Sign",
+              "kms:GetPublicKey",
+              "kms:DescribeKey",
+              "kms:Verify",
+            ]
+            Resource = aws_kms_key.cosign_signer.arn
+          },
+          {
+            Sid      = "SecretsManagerJWT"
+            Effect   = "Allow"
+            Action   = ["secretsmanager:GetSecretValue"]
+            Resource = "arn:__AWS_PARTITION__:secretsmanager:__AWS_REGION__:__AWS_ACCOUNT_ID__:secret:__CLUSTER_NAME__-authorizer-jwt-secret-*"
+          },
         ]
       })
     }

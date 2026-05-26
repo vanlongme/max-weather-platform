@@ -83,3 +83,13 @@ output "lambda_authorizer_role_name" {
   description = "Convenience accessor for the Lambda Authorizer service role name."
   value       = try(aws_iam_role.service["lambda_authorizer"].name, "")
 }
+
+output "cosign_key_alias" {
+  description = "KMS alias for the cosign image signing key. Use awskms:///alias/max-weather-cosign-signer in cosign CLI."
+  value       = aws_kms_alias.cosign_signer.name
+}
+
+output "cosign_key_arn" {
+  description = "ARN of the KMS ECC signing key used by cosign."
+  value       = aws_kms_key.cosign_signer.arn
+}

@@ -1,0 +1,19 @@
+# .gitleaks.toml — gitleaks secret scanning allowlist
+# Format: https://github.com/gitleaks/gitleaks#configuration
+# Entries have NO TTL — they accumulate indefinitely by design.
+# Add entries ONLY with a comment explaining why the false-positive is safe.
+
+title = "max-weather-gitleaks"
+
+[extend]
+# Extend the official default ruleset
+useDefault = true
+
+[allowlist]
+description = "Known false-positive paths and patterns"
+paths = [
+  # Fixture branches plant canonical dummy secrets for gate validation
+  '''tests/security/fixtures''',
+  # Postman environment templates contain placeholder token shapes (not real secrets)
+  '''docs/postman.*template\.json''',
+]
