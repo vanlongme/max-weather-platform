@@ -1,0 +1,28 @@
+# infra/envs/poc/eks-self-managed-addons — terraform.tfvars.example
+# This is a CHILD MODULE of infra/envs/poc/ and does NOT use terraform.tfvars directly.
+# All inputs are auto-wired from the parent module block in infra/envs/poc/main.tf.
+# This file is provided as a reference for understanding the inputs if testing the module standalone.
+
+cluster_name                      = "poc-max-weather"
+cluster_endpoint                  = "https://example-cluster-endpoint.eks.us-east-1.amazonaws.com"
+cluster_certificate_authority_data = "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...LS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQ=="
+aws_region                        = "us-east-1"
+vpc_id                            = "vpc-12345678"
+log_group_name                    = "/aws/eks/poc-max-weather/application"
+karpenter_queue_name              = "poc-max-weather-karpenter-queue"
+karpenter_node_iam_role_name      = "poc-max-weather-karpenter-node-role"
+private_subnet_ids                = ["subnet-11111111", "subnet-22222222", "subnet-33333333"]
+
+chart_versions = {
+  "ingress-nginx"      = "4.15.1"
+  "cluster-autoscaler" = "9.57.0"
+  "fluent-bit"         = "0.57.3"
+  "external-secrets"   = "2.4.1"
+  "metrics-server"     = "3.13.0"
+  "karpenter"          = "1.12.0"
+  "jenkins"            = "5.9.18"
+  "keda"               = "2.19.0"
+}
+
+enable_keda = true
+# Supplying this map REPLACES the default {}. Re-declare every entry you want kept.

@@ -50,31 +50,19 @@ variable "allowed_cidrs" {
 ###############################################################################
 
 variable "eks_managed_node_groups" {
-  description = "Map of EKS managed node groups passed through to the eks module. Default ships a single 'infra' Bottlerocket t3.medium 1/10/1 group tainted role=infra:NoSchedule; cluster addon controllers tolerate it, workload pods land on Karpenter-provisioned nodes instead."
+  description = "Map of EKS managed node groups passed through to the eks module. Default ships a single 'infra' Bottlerocket m6i.large 2/10/2 group tainted role=infra:NO_SCHEDULE; cluster addon controllers tolerate it, workload pods land on Karpenter-provisioned nodes instead."
   type        = any
   default = {
     infra = {
-      instance_types = ["t3.medium"]
+      instance_types = ["m6i.large"]
       ami_type       = "BOTTLEROCKET_x86_64"
-      min_size       = 1
+      min_size       = 2
       max_size       = 10
-      desired_size   = 1
+      desired_size   = 2
       labels         = { role = "infra" }
       taints = {
         infra = { key = "role", value = "infra", effect = "NO_SCHEDULE" }
       }
-    }
-    jenkins = {
-      instance_types = ["m6i.large"]
-      ami_type       = "BOTTLEROCKET_x86_64"
-      min_size       = 1
-      max_size       = 2
-      desired_size   = 1
-      labels         = { role = "jenkins" }
-      taints = {
-        jenkins = { key = "role", value = "jenkins", effect = "NO_SCHEDULE" }
-      }
-      tags = { NodeGroup = "jenkins-public" }
     }
   }
 }

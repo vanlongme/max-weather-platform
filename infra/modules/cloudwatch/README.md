@@ -8,9 +8,13 @@ defaults that match the existing weather-api stack:
 |-----|-----------|---------|
 | `eks_application` | `/aws/eks/{cluster}/application` | EKS pod logs (Fluent Bit). |
 | `eks_control_plane` | `/aws/eks/{cluster}/cluster` | EKS control plane logs. |
-| `lambda_authorizer` | `/aws/lambda/{cluster}-authorizer` | Lambda authorizer execution logs. |
 | `api_gateway` | `/aws/apigateway/{cluster}-api` | API Gateway access logs. |
 | `jenkins` | `/aws/ec2/{cluster}-jenkins` | Jenkins build/runtime logs. |
+
+> Note: `lambda_authorizer` was removed from the defaults. The Lambda module
+> creates `/aws/lambda/<name>-authorizer` with its own retention policy. The
+> `lambda_authorizer_log_group` output still exists as a compatibility shim but
+> returns `""` unless you add the key back to `log_groups`.
 
 Each entry's optional `name` field overrides the default
 `${var.name}-${key}-logs` naming and may include the literal placeholder
@@ -53,9 +57,6 @@ locals {
     }
     eks_control_plane = {
       name = "/aws/eks/__CLUSTER_NAME__/cluster"
-    }
-    lambda_authorizer = {
-      name = "/aws/lambda/__CLUSTER_NAME__-authorizer"
     }
     api_gateway = {
       name = "/aws/apigateway/__CLUSTER_NAME__-api"

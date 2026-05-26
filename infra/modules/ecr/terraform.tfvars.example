@@ -1,20 +1,81 @@
-cluster_name = "max-weather"
+# REQUIRED: Name prefix applied to every resource (typically the master_prefix
+# from the composition, e.g. 'poc-max-weather'). Each repository's final name
+# is <var.name>-<key>-repo.
+name = "poc-max-weather"
 
+# Map of ECR repositories to create, keyed by short name.
+# Each value is an object with optional per-repo overrides; when an override
+# is null the module-level default applies. Final repository name is
+# <var.name>-<key>-repo (e.g. key 'api' with var.name 'poc-max-weather'
+# produces 'poc-max-weather-api-repo'). The default map creates the 'api'
+# repository only.
+#
+# Supplying repositories REPLACES the defaults entirely. To extend defaults,
+# re-declare all default entries plus your custom ones.
 repositories = {
-  "__CLUSTER_NAME__-api" = {}
-  "__CLUSTER_NAME__-lambda-authorizer" = {
-    keep_tagged_image_count    = 5
-    untagged_image_expiry_days = 14
+  api = {
+    image_tag_mutability       = null
+    scan_on_push               = null
+    keep_tagged_image_count    = null
+    untagged_image_expiry_days = null
+    tag_prefix_list            = ["staging-", "prod-"]
   }
 }
 
-image_tag_mutability       = "MUTABLE"
-scan_on_push               = true
-keep_tagged_image_count    = 10
+# Tag mutability setting for the repositories: MUTABLE or IMMUTABLE.
+image_tag_mutability = "MUTABLE"
+
+# Whether to enable image vulnerability scanning on push.
+scan_on_push = true
+
+# Number of most-recent staging-/prod- tagged images to retain.
+keep_tagged_image_count = 10
+
+# Number of days to keep untagged images before expiry.
 untagged_image_expiry_days = 7
 
+# Common tags to apply to all resources.
 tags = {
   Project     = "max-weather"
   Environment = "poc"
   ManagedBy   = "terraform"
 }
+
+# rulePriority assigned to the lifecycle rule that retains the N most recent
+# tagged images.
+lifecycle_keep_tagged_priority = 1
+
+# rulePriority assigned to the lifecycle rule that expires untagged images.
+lifecycle_expire_untagged_priority = 2
+
+# Description template for the keep-tagged lifecycle rule.
+# The placeholder var.lifecycle_count_placeholder is substituted with the
+# per-repository keep_tagged_image_count.
+lifecycle_keep_tagged_description_template = "Keep last __COUNT__ tagged images"
+
+# Description template for the expire-untagged lifecycle rule.
+# The placeholder var.lifecycle_count_placeholder is substituted with the
+# per-repository untagged_image_expiry_days.
+lifecycle_expire_untagged_description_template = "Expire untagged images after __COUNT__ days"
+
+# Literal placeholder substituted in lifecycle rule descriptions with the
+# per-repository numeric value.
+lifecycle_count_placeholder = "__COUNT__"
+
+# tagStatus value used by the keep-tagged lifecycle rule.
+lifecycle_tag_status_tagged = "tagged"
+
+# tagStatus value used by the expire-untagged lifecycle rule.
+lifecycle_tag_status_untagged = "untagged"
+
+# countType used to express 'retain at most N images'.
+lifecycle_count_type_more_than = "imageCountMoreThan"
+
+# countType used to express 'expire images older than N units'.
+lifecycle_count_type_since_pushed = "sinceImagePushed"
+
+# countUnit used by the expire-untagged lifecycle rule.
+lifecycle_count_unit = "days"
+
+# Action type for ECR lifecycle rules.
+lifecycle_action_type = "expire"

@@ -189,11 +189,11 @@ controller:
       failureThreshold: 5
 
   nodeSelector:
-    role: jenkins
+    role: infra
   tolerations:
     - key: role
       operator: Equal
-      value: jenkins
+      value: infra
       effect: NoSchedule
 
 agent:
@@ -201,11 +201,11 @@ agent:
   # per build under the same ServiceAccount.
   enabled: false
   nodeSelector:
-    role: jenkins
+    role: infra
   tolerations:
     - key: role
       operator: Equal
-      value: jenkins
+      value: infra
       effect: NoSchedule
 
 persistence:

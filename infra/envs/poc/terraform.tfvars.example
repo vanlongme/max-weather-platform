@@ -11,6 +11,7 @@
 # (e.g. infra/envs/poc -> "poc"). With the defaults below, master_prefix
 # evaluates to "poc-max-weather".
 ###############################################################################
+
 aws_region    = "us-east-1"
 project       = "max-weather"
 # WARNING: 0.0.0.0/0 is REJECTED by module validation. Replace YOUR_OPERATOR_IP with your actual /32.
@@ -18,9 +19,9 @@ allowed_cidrs = ["YOUR_OPERATOR_IP/32"]
 
 # ###############################################################################
 # # Optional overrides — uncomment to customize. Defaults preserve the original
-# # POC behavior: 1.34 EKS on Bottlerocket, single t3.medium 1/10/1 general node
-# # group, 7-day log retention, three ECR repos, two Secrets Manager secrets,
-# # lambda authorizer function, and the five built-in EKS Pod Identity roles.
+# # POC behavior: 1.34 EKS on Bottlerocket, single 'infra' m6i.large managed node
+# # group (2/10/2), 7-day log retention, one ECR repo (api), three Secrets Manager
+# # secrets, lambda authorizer function, and the five built-in EKS Pod Identity roles.
 # #
 # # Map-variable semantics: supplying any map(object) variable REPLACES the
 # # default map entirely (no merge). Re-declare any built-in entries you want
@@ -29,179 +30,226 @@ allowed_cidrs = ["YOUR_OPERATOR_IP/32"]
 # # substitute at apply time.
 # ###############################################################################
 
-# # eks_cluster_version = "1.34"
-# # log_retention_days  = 7
+# eks_cluster_version = "1.34"
+# log_retention_days  = 7
 
-# ###############################################################################
-# # Networking — VPC CIDR + AZ / public + private subnet layout
-# ###############################################################################
-# # vpc_cidr            = "10.20.0.0/16"
-# # availability_zones  = ["us-east-1a", "us-east-1b", "us-east-1c"]
+###############################################################################
+# Networking — VPC CIDR + AZ / public + private subnet layout
+###############################################################################
+# vpc_cidr            = "10.20.0.0/16"
+# availability_zones  = ["us-east-1a", "us-east-1b", "us-east-1c"]
 public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
 # private_subnet_cidrs             = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
 # enable_nat_gateway               = true
 # enable_vpc_endpoints             = true
 # enable_s3_gateway_endpoint       = true
 # vpc_endpoint_private_dns_enabled = true
-# vpc_interface_endpoints = [
-#   "ec2", "ecr.api", "ecr.dkr", "sts", "logs", "eks", "eks-auth",
-#   "ssm", "ssmmessages", "ec2messages", "secretsmanager", "kms",
-#   "autoscaling", "elasticloadbalancing", "lambda", "monitoring",
-# ]
+# vpc_interface_endpoints = {
+#   "ec2"                  = "ec2"
+#   "ecr_api"              = "ecr.api"
+#   "ecr_dkr"              = "ecr.dkr"
+#   "sts"                  = "sts"
+#   "logs"                 = "logs"
+#   "eks"                  = "eks"
+#   "eks_auth"             = "eks-auth"
+#   "ssm"                  = "ssm"
+#   "ssmmessages"          = "ssmmessages"
+#   "ec2messages"          = "ec2messages"
+#   "secretsmanager"       = "secretsmanager"
+#   "kms"                  = "kms"
+#   "autoscaling"          = "autoscaling"
+#   "elasticloadbalancing" = "elasticloadbalancing"
+#   "lambda"               = "lambda"
+#   "monitoring"           = "monitoring"
+# }
 
-# ###############################################################################
-# # EKS endpoint posture + control-plane logging (hybrid-private defaults)
-# ###############################################################################
-# # endpoint_private_access = true    # enabled: private VPC endpoint active
-# # endpoint_public_access  = true    # enabled: operator CIDR allowlisted above
-# # enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+###############################################################################
+# EKS endpoint posture + control-plane logging (hybrid-private defaults)
+###############################################################################
+# endpoint_private_access = true
+# endpoint_public_access  = true
+# enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
-# ###############################################################################
-# # EKS cluster add-ons — defaults: CoreDNS, kube-proxy, VPC CNI, Pod Identity
-# # Agent (the latter is required by the Karpenter sub-module's Pod Identity
-# # association in terraform-aws-modules/eks v21+).
-# ###############################################################################
-# # cluster_addons = {
-# #   coredns                = {}
-# #   kube-proxy             = {}
-# #   vpc-cni                = { before_compute = true }
-# #   eks-pod-identity-agent = { before_compute = true }
-# # }
+###############################################################################
+# EKS cluster add-ons — defaults: CoreDNS, kube-proxy, VPC CNI, Pod Identity Agent
+###############################################################################
+# cluster_addons = {
+#   coredns = {
+#     depends_on_node_group       = true
+#     most_recent                 = true
+#     resolve_conflicts_on_create = "OVERWRITE"
+#     resolve_conflicts_on_update = "OVERWRITE"
+#     configuration_values        = "{\"nodeSelector\":{\"role\":\"infra\"},\"tolerations\":[{\"key\":\"role\",\"operator\":\"Equal\",\"value\":\"infra\",\"effect\":\"NoSchedule\"}]}"
+#   }
+#   kube-proxy             = { depends_on_node_group = true }
+#   vpc-cni                = { depends_on_node_group = false }
+#   eks-pod-identity-agent = { depends_on_node_group = true }
+# }
 
-# ###############################################################################
-# # Extra EKS access entries — merged after the operator + jenkins entries the
-# # eks module creates by default. Use to grant additional principals cluster
-# # access without modifying the module.
-# ###############################################################################
-# # eks_access_entries = {
-# #   readonly = {
-# #     principal_arn = "arn:aws:iam::__AWS_ACCOUNT_ID__:role/AuditReadOnly"
-# #     policy_associations = {
-# #       view = {
-# #         policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
-# #         access_scope = { type = "cluster" }
-# #       }
-# #     }
-# #   }
-# # }
+###############################################################################
+# Extra EKS access entries — merged after the operator + jenkins entries the
+# eks module creates by default. Use to grant additional principals cluster
+# access without modifying the module.
+###############################################################################
+# eks_access_entries = {
+#   readonly = {
+#     principal_arn = "arn:aws:iam::__AWS_ACCOUNT_ID__:role/AuditReadOnly"
+#     policy_associations = {
+#       view = {
+#         policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
+#         access_scope = { type = "cluster" }
+#       }
+#     }
+#   }
+# }
 
-# ###############################################################################
-# # EKS managed node group defaults (applied to every group; per-group wins).
-# ###############################################################################
-# # eks_managed_node_group_defaults = {
-# #   attach_cluster_primary_security_group = false
-# # }
+###############################################################################
+# EKS managed node group defaults (applied to every group; per-group wins).
+###############################################################################
+# eks_managed_node_group_defaults = {
+#   attach_cluster_primary_security_group = false
+# }
 
-# ###############################################################################
-# # EKS managed node groups — multiple groups, mixed instance types, taints, etc.
-# ###############################################################################
-# # eks_managed_node_groups = {
-# #   general = {
-# #     instance_types = ["t3.medium"]
-# #     ami_type       = "BOTTLEROCKET_x86_64"
-# #     min_size       = 1
-# #     max_size       = 10
-# #     desired_size   = 1
-# #     labels         = { role = "general" }
-# #   }
-# #   spot = {
-# #     instance_types = ["t3.large", "t3a.large"]
-# #     capacity_type  = "SPOT"
-# #     min_size       = 0
-# #     max_size       = 20
-# #     desired_size   = 0
-# #     labels         = { role = "spot" }
-# #     taints = {
-# #       spot = { key = "spot", value = "true", effect = "NO_SCHEDULE" }
-# #     }
-# #   }
-# # }
+###############################################################################
+# EKS managed node groups — single 'infra' group (2/10/2 m6i.large).
+# Tainted role=infra:NO_SCHEDULE; workload pods land on Karpenter-provisioned nodes.
+###############################################################################
+# eks_managed_node_groups = {
+#   infra = {
+#     instance_types = ["m6i.large"]
+#     ami_type       = "BOTTLEROCKET_x86_64"
+#     min_size       = 2
+#     max_size       = 10
+#     desired_size   = 2
+#     labels         = { role = "infra" }
+#     taints = {
+#       infra = { key = "role", value = "infra", effect = "NO_SCHEDULE" }
+#     }
+#   }
+# }
 
-# ###############################################################################
-# # CloudWatch log groups — `__CLUSTER_NAME__` is substituted with local.master_prefix
-# ###############################################################################
-# # log_groups = {
-# #   eks_application   = { name = "/aws/eks/__CLUSTER_NAME__/application" }
-# #   eks_control_plane = { name = "/aws/eks/__CLUSTER_NAME__/cluster" }
-# #   lambda_authorizer = { name = "/aws/lambda/__CLUSTER_NAME__-authorizer" }
-# #   api_gateway       = { name = "/aws/apigateway/__CLUSTER_NAME__-api" }
-# #   jenkins           = { name = "/aws/ec2/__CLUSTER_NAME__-jenkins" }
-# #   my_extra          = { name = "/aws/myapp", retention_days = 14 }
-# # }
+###############################################################################
+# CloudWatch log groups — `__CLUSTER_NAME__` is substituted with local.master_prefix
+###############################################################################
+# log_groups = {
+#   eks_application = {
+#     name = "/aws/eks/__CLUSTER_NAME__/application"
+#   }
+#   eks_control_plane = {
+#     name = "/aws/eks/__CLUSTER_NAME__/cluster"
+#   }
+#   api_gateway = {
+#     name = "/aws/apigateway/__CLUSTER_NAME__-api"
+#   }
+#   jenkins = {
+#     name = "/aws/ec2/__CLUSTER_NAME__-jenkins"
+#   }
+# }
 
-# ###############################################################################
-# # ECR repositories — map keyed by short repo name. The full repository name
-# # is derived as `${master_prefix}-${key}-repo` (e.g. "poc-max-weather-api-repo").
-# ###############################################################################
-# # ecr_repositories = {
-# #   api         = {}
-# #   base-nodejs = {}
-# # }
-# # Note: lambda-authorizer ECR repo removed — Lambda deploys ZIP via Terraform archive_file
+###############################################################################
+# ECR repositories — map keyed by short repo name.
+###############################################################################
+# ecr_repositories = {
+#   api = {}
+# }
 
-# ###############################################################################
-# # Secrets Manager — `__CLUSTER_NAME__` is substituted with local.master_prefix
-# ###############################################################################
-# # secrets = {
-# #   authorizer_jwt_secret = {
-# #     name                    = "__CLUSTER_NAME__-authorizer-jwt-secret"
-# #     description             = "HS256 shared secret for the Lambda authorizer (operator-populated post-apply)."
-# #     initial_value           = "CHANGE-ME-32-BYTE-SECRET-AT-LEAST"
-# #     recovery_window_in_days = 0
-# #   }
-# #   app_config = {
-# #     name          = "/__CLUSTER_NAME__/app/config"
-# #     description   = "weather-api application runtime configuration."
-# #     initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\",\"PORT\":\"3000\"}"
-# #   }
-# # }
+###############################################################################
+# Secrets Manager — `__CLUSTER_NAME__` is substituted with local.master_prefix
+###############################################################################
+# secrets = {
+#   authorizer_jwt_secret = {
+#     name                    = "__CLUSTER_NAME__-authorizer-jwt-secret"
+#     description             = "HS256 shared secret for the Lambda authorizer (operator-populated post-apply)."
+#     initial_value           = "CHANGE-ME-32-BYTE-SECRET-AT-LEAST"
+#     recovery_window_in_days = 0
+#   }
+#   app_config = {
+#     name          = "/__CLUSTER_NAME__/app/config"
+#     description   = "weather-api application runtime configuration."
+#     initial_value = "{\"OPEN_METEO_BASE_URL\":\"https://api.open-meteo.com/v1\"}"
+#   }
+#   authorizer_jwt_secret_prod = {
+#     name                    = "__CLUSTER_NAME__-authorizer-jwt-secret-prod"
+#     description             = "HS256 JWT signing secret for the prod API Gateway stage (operator-populated post-apply)."
+#     recovery_window_in_days = 0
+#   }
+# }
 
-# ###############################################################################
-# # EKS Pod Identity roles — replaces the 5 built-in defaults entirely. Re-declare
-# # any you want kept. Policy JSON may use __AWS_PARTITION__ / __AWS_REGION__ /
-# # __AWS_ACCOUNT_ID__ / __CLUSTER_NAME__ placeholders.
-# ###############################################################################
-# # pod_identity_roles = {
-# #   jenkins            = { namespace = "jenkins",          service_account = "jenkins",                      policy_json = "..." }
-# #   cluster-autoscaler = { namespace = "kube-system",      service_account = "cluster-autoscaler",           policy_json = "..." }
-# #   fluent-bit         = { namespace = "amazon-cloudwatch", service_account = "fluent-bit",                   policy_json = "..." }
-# #   external-secrets   = { namespace = "external-secrets", service_account = "external-secrets",             policy_json = "..." }
-# # }
+###############################################################################
+# EKS Pod Identity roles — replaces the 5 built-in defaults entirely. Re-declare
+# any you want kept. Policy JSON may use __AWS_PARTITION__ / __AWS_REGION__ /
+# __AWS_ACCOUNT_ID__ / __CLUSTER_NAME__ placeholders.
+###############################################################################
+# pod_identity_roles = {
+#   jenkins = {
+#     namespace        = "jenkins"
+#     service_account  = "jenkins"
+#     role_name_suffix = "jenkins"
+#     policy_json      = "..."
+#   }
+#   jenkins-agent = {
+#     namespace        = "jenkins"
+#     service_account  = "jenkins-agent"
+#     role_name_suffix = "jenkins-agent"
+#     policy_json      = "..."
+#   }
+#   cluster-autoscaler = {
+#     namespace        = "kube-system"
+#     service_account  = "cluster-autoscaler"
+#     role_name_suffix = "cluster-autoscaler"
+#     policy_json      = "..."
+#   }
+#   fluent-bit = {
+#     namespace        = "amazon-cloudwatch"
+#     service_account  = "fluent-bit"
+#     role_name_suffix = "fluent-bit"
+#     policy_json      = "..."
+#   }
+#   external-secrets = {
+#     namespace        = "external-secrets"
+#     service_account  = "external-secrets"
+#     role_name_suffix = "external-secrets"
+#     policy_json      = "..."
+#   }
+# }
 
-# ###############################################################################
-# # Traditional service-principal IAM roles (Lambda, EC2, ECS, etc.). Empty by
-# # default — the iam module only creates these when entries are supplied.
-# ###############################################################################
-# # iam_service_roles = {
-# #   weather_lambda_exec = {
-# #     service_principals  = ["lambda.amazonaws.com"]
-# #     role_name_suffix    = "lambda-exec"
-# #     managed_policy_arns = ["arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
-# #     policy_json         = "{...inline policy json with __CLUSTER_NAME__/__AWS_REGION__/__AWS_ACCOUNT_ID__/__AWS_PARTITION__ placeholders...}"
-# #   }
-# # }
+###############################################################################
+# Service-principal IAM roles (Lambda, EC2, ECS, etc.). Defaults include
+# lambda_authorizer role (Secrets Manager scoped to authorizer JWT secret).
+###############################################################################
+# iam_service_roles = {
+#   lambda_authorizer = {
+#     service_principals  = ["lambda.amazonaws.com"]
+#     managed_policy_arns = ["arn:__AWS_PARTITION__:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+#     role_name_suffix    = "lambda-authorizer"
+#     policy_json         = "{...inline policy json...}"
+#   }
+# }
 
-# ###############################################################################
-# # Legacy IRSA roles (OIDC web-identity). Empty by default — prefer
-# # pod_identity_roles for new workloads on EKS 1.30+.
-# ###############################################################################
-# # iam_irsa_roles = {
-# #   legacy_workload = {
-# #     namespace       = "legacy"
-# #     service_account = "worker"
-# #     policy_json     = "{...inline policy json...}"
-# #   }
-# # }
+###############################################################################
+# Legacy IRSA roles (OIDC web-identity). Empty by default — prefer
+# pod_identity_roles for new workloads on EKS 1.30+.
+###############################################################################
+# iam_irsa_roles = {
+#   legacy_workload = {
+#     namespace       = "legacy"
+#     service_account = "worker"
+#     policy_json     = "..."
+#   }
+# }
 
-# ###############################################################################
-# # Lambda functions — required to deploy the HS256 authorizer.
-# #
-# # IMPORTANT: Run `make lambda-deps` before `terraform plan` or `terraform apply`
-# # so that infra/envs/poc/lambdas/authorizer/node_modules/ exists for archive_file packaging.
-# #
-# # role_arn and secrets ARN are interpolated at apply time from sibling modules;
-# # copy the block below verbatim — no substitution required in the tfvars file.
-# ###############################################################################
+###############################################################################
+# Lambda functions — REQUIRED to deploy the HS256 authorizer.
+#
+# IMPORTANT: Run `make lambda-deps` before `terraform plan` or `terraform apply`
+# so that infra/envs/poc/lambdas/authorizer/node_modules/ exists for archive_file packaging.
+#
+# NOTE: lambda_functions is passed through var.lambda_functions to module "lambda".
+# Because both role_arn and the secret ARN come from other modules in the same apply,
+# they cannot be hardcoded here. Instead, use the module-reference pattern shown in
+# infra/modules/lambda/README.md and wire them in main.tf. The default below ships
+# the authorizer function wired to iam/lambda_authorizer_role_arn and secrets/authorizer_jwt_secret_arn.
+###############################################################################
 # lambda_functions = {
 #   authorizer = {
 #     source_dir      = "./lambdas/authorizer"
@@ -209,22 +257,15 @@ public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
 #     runtime         = "nodejs22.x"
 #     memory_size     = 128
 #     timeout         = 5
-#     role_arn        = "__LAMBDA_AUTHORIZER_ROLE_ARN__"   # set by iam module; see below
+#     role_arn        = "arn:aws:iam::123456789012:role/poc-max-weather-lambda-authorizer-role"
 #     npm_install_dir = "./lambdas/authorizer"
 #     environment = {
-#       AUTHORIZER_SECRET_ARN = "__AUTHORIZER_JWT_SECRET_ARN__"  # set by secrets module; see below
+#       AUTHORIZER_SECRET_ARN = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-authorizer-jwt-secret-AbCdEf"
 #       REQUIRED_SCOPE        = "weather-api/read"
 #       JWT_ISSUER            = "max-weather-authorizer"
 #     }
 #     invoke_principals = {
-#       api-gateway = "arn:aws:execute-api:us-east-1:__AWS_ACCOUNT_ID__:*"
+#       api-gateway = "arn:aws:execute-api:us-east-1:123456789012:*"
 #     }
 #   }
 # }
-#
-# NOTE: lambda_functions is passed through var.lambda_functions to module "lambda".
-# Because both role_arn and the secret ARN come from other modules in the same apply,
-# they cannot be hardcoded here. Instead, use the module-reference pattern shown in
-# infra/modules/lambda/README.md and wire them in main.tf. The block above is shown
-# for documentation purposes — the actual values flow through module references in
-# infra/envs/poc/main.tf and do NOT need to be set in terraform.tfvars.

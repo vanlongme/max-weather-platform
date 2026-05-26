@@ -45,12 +45,10 @@ locals {
     var.eks_access_entries,
   )
 
-  # Per-MNG subnet assignment for hybrid-private topology.
-  # infra NG: private subnets (EKS workloads, addon controllers).
-  # jenkins NG: public subnets (ECR push + base-image build via IGW, no NATGW cost).
+  # Single infra MNG in PUBLIC subnets — Jenkins + platform controllers; workload via Karpenter (private)
   eks_managed_node_groups_with_subnets = {
     for k, v in var.eks_managed_node_groups : k => merge(v, {
-      subnet_ids = k == "jenkins" ? module.networking.public_subnet_ids : module.networking.private_subnet_ids
+      subnet_ids = module.networking.public_subnet_ids
     })
   }
 }

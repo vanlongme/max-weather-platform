@@ -72,7 +72,7 @@ variable "enable_vpc_endpoints" {
 }
 
 variable "vpc_interface_endpoints" {
-  description = "Map of interface VPC endpoints to create. Key = service short name; value = service suffix appended to com.amazonaws.<region>. Default ships the canonical EKS-private-cluster set (ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages)."
+  description = "Map of interface VPC endpoints to create. Key = service short name; value = service suffix appended to com.amazonaws.<region>. Default ships 18 baseline EKS endpoints: ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages, monitoring, secretsmanager, elasticfilesystem, xray."
   type        = map(string)
   default = {
     ec2                  = "ec2"
@@ -89,6 +89,10 @@ variable "vpc_interface_endpoints" {
     ssm                  = "ssm"
     ssmmessages          = "ssmmessages"
     ec2messages          = "ec2messages"
+    monitoring           = "monitoring"
+    secretsmanager       = "secretsmanager"
+    elasticfilesystem    = "elasticfilesystem"
+    xray                 = "xray"
   }
 }
 

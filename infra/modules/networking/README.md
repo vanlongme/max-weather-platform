@@ -58,7 +58,7 @@ module "networking" {
 }
 ```
 
-The default `vpc_interface_endpoints` map ships the canonical EKS private-cluster set (ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages). Supplying a custom map **REPLACES** it — re-declare every entry you want kept.
+The default `vpc_interface_endpoints` map ships 18 endpoints: the canonical EKS private-cluster set (ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages) plus four observability and secret-management endpoints (monitoring, secretsmanager, elasticfilesystem, xray). Supplying a custom map **REPLACES** it — re-declare every entry you want kept.
 
 ## Usage — VPC CNI custom networking ("2nd networking")
 
@@ -182,7 +182,7 @@ No modules.
 | <a name="input_vpc_cidr"></a> [vpc\_cidr](#input\_vpc\_cidr) | IPv4 CIDR block for the VPC. | `string` | `"10.20.0.0/16"` | no |
 | <a name="input_vpc_endpoint_private_dns_enabled"></a> [vpc\_endpoint\_private\_dns\_enabled](#input\_vpc\_endpoint\_private\_dns\_enabled) | Whether private DNS is enabled on interface endpoints. Required so SDK calls to *.amazonaws.com hostnames resolve to endpoint ENIs. | `bool` | `true` | no |
 | <a name="input_vpc_endpoint_sg_name_suffix"></a> [vpc\_endpoint\_sg\_name\_suffix](#input\_vpc\_endpoint\_sg\_name\_suffix) | n/a | `string` | `"-vpce-sg"` | no |
-| <a name="input_vpc_interface_endpoints"></a> [vpc\_interface\_endpoints](#input\_vpc\_interface\_endpoints) | Map of interface VPC endpoints to create. Key = service short name; value = service suffix appended to com.amazonaws.<region>. Default ships the canonical EKS-private-cluster set (ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages). | `map(string)` | <pre>{<br/>  "autoscaling": "autoscaling",<br/>  "ec2": "ec2",<br/>  "ec2messages": "ec2messages",<br/>  "ecr_api": "ecr.api",<br/>  "ecr_dkr": "ecr.dkr",<br/>  "eks": "eks",<br/>  "eks_auth": "eks-auth",<br/>  "elasticloadbalancing": "elasticloadbalancing",<br/>  "kms": "kms",<br/>  "logs": "logs",<br/>  "sqs": "sqs",<br/>  "ssm": "ssm",<br/>  "ssmmessages": "ssmmessages",<br/>  "sts": "sts"<br/>}</pre> | no |
+| <a name="input_vpc_interface_endpoints"></a> [vpc\_interface\_endpoints](#input\_vpc\_interface\_endpoints) | Map of interface VPC endpoints to create. Key = service short name; value = service suffix appended to com.amazonaws.<region>. Default ships 18 endpoints: the canonical EKS-private-cluster set (ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages) plus monitoring, secretsmanager, elasticfilesystem, xray. | `map(string)` | <pre>{<br/>  "autoscaling": "autoscaling",<br/>  "ec2": "ec2",<br/>  "ec2messages": "ec2messages",<br/>  "ecr_api": "ecr.api",<br/>  "ecr_dkr": "ecr.dkr",<br/>  "eks": "eks",<br/>  "eks_auth": "eks-auth",<br/>  "elasticfilesystem": "elasticfilesystem",<br/>  "elasticloadbalancing": "elasticloadbalancing",<br/>  "kms": "kms",<br/>  "logs": "logs",<br/>  "monitoring": "monitoring",<br/>  "secretsmanager": "secretsmanager",<br/>  "sqs": "sqs",<br/>  "ssm": "ssm",<br/>  "ssmmessages": "ssmmessages",<br/>  "sts": "sts",<br/>  "xray": "xray"<br/>}</pre> | no |
 | <a name="input_vpc_name_suffix"></a> [vpc\_name\_suffix](#input\_vpc\_name\_suffix) | n/a | `string` | `"-vpc"` | no |
 
 ## Outputs

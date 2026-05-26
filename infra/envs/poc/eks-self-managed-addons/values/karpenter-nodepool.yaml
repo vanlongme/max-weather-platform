@@ -15,6 +15,7 @@ spec:
     metadata:
       labels:
         provisioner: karpenter
+        role: workload
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws
@@ -24,10 +25,16 @@ spec:
         - key: karpenter.sh/provisioned
           value: "true"
           effect: NoSchedule
+        - key: role
+          value: workload
+          effect: NoSchedule
       requirements:
         - key: karpenter.k8s.aws/instance-category
           operator: In
           values: ["t", "m", "c"]
+        - key: karpenter.k8s.aws/instance-size
+          operator: In
+          values: ["medium", "large", "xlarge", "2xlarge"]
         - key: karpenter.k8s.aws/instance-cpu
           operator: In
           values: ["2", "4", "8"]

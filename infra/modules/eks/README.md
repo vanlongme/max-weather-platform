@@ -162,7 +162,7 @@ module "eks" {
 ### Node Groups
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `eks_managed_node_groups` | `map(object)` | `{infra=...}` | Definitions for managed node groups. Supplied map replaces default. |
+| `eks_managed_node_groups` | `map(object)` | `{infra=...}` | Definitions for managed node groups. Supplied map replaces default. Default: single `infra` group (m6i.large, public subnets, min=2 max=10 desired=2, taint role=infra:NoSchedule). |
 | `eks_managed_node_group_defaults` | `any` | `{...}` | Defaults applied to all node groups. |
 | `cluster_autoscaler_enabled_tag_key` | `string` | `"k8s.io/cluster-autoscaler/enabled"` | Tag key for Cluster Autoscaler discovery. |
 | `cluster_autoscaler_enabled_tag_value` | `string` | `"true"` | Tag value for Cluster Autoscaler discovery. |
@@ -277,7 +277,7 @@ Set `enable_auto_mode = true` to delegate node provisioning, scaling, and patchi
 Set `node_repair_enabled = true` (module-wide) or `enable_node_repair = true` per node group to enable automatic replacement of unhealthy nodes. Default: `false` (opt-in).
 
 ### Infra Node Group + Addon Scheduling
-The default `eks_managed_node_groups` ships a single `infra` group labeled `role=infra` and tainted `role=infra:NoSchedule` so workload pods do not land on it without explicit toleration. All four default cluster add-ons are pre-configured to land on this group:
+The default `eks_managed_node_groups` ships a single `infra` group (m6i.large, ON_DEMAND, Bottlerocket x86_64, public subnets, min=2 max=10 desired=2) labeled `role=infra` and tainted `role=infra:NoSchedule`. Addon controllers and Jenkins land on this group; workload pods are handled by Karpenter NodePool on private subnets. All four default cluster add-ons are pre-configured to land on this group:
 
 | Addon | Workload kind | `configuration_values` default |
 |-------|---------------|--------------------------------|

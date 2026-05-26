@@ -61,19 +61,18 @@ module "api_gateway" {
   lambda_authorizer_arn = module.lambda.function_arns["authorizer"]
   lambda_function_name  = module.lambda.function_names["authorizer"]
   nlb_dns               = data.aws_lb.ingress_nlb.dns_name
+  ingress_host          = "max-weather.local"
 
   stages = {
     staging = {
-      ingress_host = "staging.max-weather.local"
-      secret_arn   = module.secrets.authorizer_jwt_secret_arn_staging
-      issuer       = "max-weather-authorizer-staging"
-      scope        = "weather-api/read"
+      secret_arn = module.secrets.authorizer_jwt_secret_arn
+      issuer     = "max-weather-authorizer-staging"
+      scope      = "weather-api/read"
     }
     prod = {
-      ingress_host = "prod.max-weather.local"
-      secret_arn   = module.secrets.authorizer_jwt_secret_arn_prod
-      issuer       = "max-weather-authorizer-prod"
-      scope        = "weather-api/read"
+      secret_arn = module.secrets.authorizer_jwt_secret_arn
+      issuer     = "max-weather-authorizer-prod"
+      scope      = "weather-api/read"
     }
   }
 
@@ -100,10 +99,12 @@ module "api_gateway" {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `ingress_host` | `string` | Host header to inject via `overwrite:header.Host` so ingress-nginx host-based routing matches (e.g. `staging.max-weather.local`). |
-| `secret_arn` | `string` | ARN of the per-stage Secrets Manager secret holding the HS256 signing key. Consumed by the Lambda authorizer via the per-stage context the authorizer reads from environment / lookup. |
+| `secret_arn` | `string` | ARN of the per-stage Secrets Manager secret holding the HS256 signing key. Consumed by the Lambda authorizer via the per-stage context. |
 | `issuer` | `string` | Expected JWT `iss` claim value for this stage. Per-stage isolation. |
 | `scope` | `string` | Required JWT scope for this stage. |
+
+> Note: `ingress_host` is a **top-level** module variable, not a per-stage field. A single
+> Host header value applies across all stages (the NLB ingress rule is shared).
 
 ## VPC Link mode (private cluster)
 

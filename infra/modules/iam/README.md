@@ -105,7 +105,7 @@ without baking partition/region/account into the policy JSON.
 | `role_name_suffix` | Suffix appended to every role name. | `string` | `"-role"` | no |
 | `service_roles` | AWS service-principal roles (Lambda, EC2, etc.). | `map(object)` | `{}` | no |
 | `irsa_roles` | OIDC web-identity roles (legacy IRSA). Requires `oidc_provider_arn` + `oidc_provider_url`. | `map(object)` | `{}` | no |
-| `pod_identity_roles` | Pod Identity roles. `null` ships the 5 built-in defaults; supplying a map replaces them. | `map(object)` | `null` | no |
+| `pod_identity_roles` | Pod Identity roles. `null` ships the 6 built-in defaults; supplying a map replaces them entirely. | `map(object)` | `null` | no |
 | `oidc_provider_arn` | EKS OIDC provider ARN (only for IRSA). | `string` | `""` | no |
 | `oidc_provider_url` | EKS OIDC provider URL without `https://` (only for IRSA). | `string` | `""` | no |
 | `inline_policy_name_suffix` | Suffix for inline policy names. | `string` | `"-policy"` | no |

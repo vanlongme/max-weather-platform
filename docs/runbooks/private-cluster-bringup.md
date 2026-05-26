@@ -273,11 +273,11 @@ changed since apply, see Path C.
 
 Use when your IP changed or you can't edit tfvars.
 
-1. Find the Jenkins MNG instance:
+1. Find an infra MNG instance (controller nodes on public subnets):
 
    ```bash
    aws ec2 describe-instances \
-     --filters "Name=tag:eks:nodegroup-name,Values=poc-max-weather-jenkins" \
+     --filters "Name=tag:eks:nodegroup-name,Values=poc-max-weather-infra" \
                 "Name=instance-state-name,Values=running" \
      --query 'Reservations[].Instances[].InstanceId' --output text
    ```
@@ -295,7 +295,7 @@ Use when your IP changed or you can't edit tfvars.
 
    ```bash
    aws ssm start-session \
-     --target <jenkins-instance-id> \
+     --target <infra-instance-id> \
      --document-name AWS-StartPortForwardingSessionToRemoteHost \
      --parameters host="<eks-private-endpoint-host>",portNumber="443",localPortNumber="6443"
    ```

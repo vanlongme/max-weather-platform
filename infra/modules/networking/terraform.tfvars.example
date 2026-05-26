@@ -1,55 +1,163 @@
 # Example tfvars for the networking module.
 # Copy to terraform.tfvars (or pass via -var-file) when invoking standalone.
 
-name               = "poc-max-weather"
-eks_cluster_name   = "poc-max-weather-cluster"
-vpc_cidr           = "10.20.0.0/16"
-availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+# REQUIRED — Name prefix applied to every networking resource (typically the master_prefix from the composition, e.g. 'poc-max-weather').
+# name = "poc-max-weather"
 
-public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
+# Full EKS cluster name used as the VALUE of the kubernetes.io/cluster/<cluster_name> subnet tag and as the value of the karpenter.sh/discovery subnet tag. Empty string falls back to var.name.
+# Default: ""
+# eks_cluster_name = ""
 
-###############################################################################
-# Private cluster topology — workers in private subnets, AWS APIs reached via
-# VPC interface endpoints + S3 gateway endpoint, no NAT gateway.
-###############################################################################
-private_subnet_cidrs = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
-enable_nat_gateway   = false
-enable_vpc_endpoints = true
+# IPv4 CIDR block for the VPC.
+# Default: "10.20.0.0/16"
+# vpc_cidr = "10.20.0.0/16"
 
-###############################################################################
-# VPC CNI custom networking ("2nd networking") — opt-in.
-# Pod subnet count must match availability_zones; CIDRs must lie inside
-# secondary_vpc_cidrs. Pod subnets get tagged kubernetes.io/cluster/<cluster>=owned
-# + internal-elb + karpenter discovery (NO public-elb), and share the private RT.
-###############################################################################
-# secondary_vpc_cidrs = ["100.64.0.0/16"]
-# pod_subnet_cidrs    = ["100.64.0.0/19", "100.64.32.0/19", "100.64.64.0/19"]
+# REQUIRED — List of availability zones for subnet distribution. Length must match each provided subnet CIDR list.
+# availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
-# # Override the default interface-endpoint set (REPLACES the default entirely).
-# # vpc_interface_endpoints = {
-# #   ec2                  = "ec2"
-# #   ecr_api              = "ecr.api"
-# #   ecr_dkr              = "ecr.dkr"
-# #   sts                  = "sts"
-# #   logs                 = "logs"
-# #   eks                  = "eks"
-# #   eks_auth             = "eks-auth"
-# #   kms                  = "kms"
-# #   sqs                  = "sqs"
-# #   autoscaling          = "autoscaling"
-# #   elasticloadbalancing = "elasticloadbalancing"
-# #   ssm                  = "ssm"
-# #   ssmmessages          = "ssmmessages"
-# #   ec2messages          = "ec2messages"
-# # }
-# # enable_s3_gateway_endpoint       = true
-# # vpc_endpoint_private_dns_enabled = true
+# CIDR blocks for public subnets (one per AZ). Set to [] to skip public subnets entirely (fully-private cluster topology).
+# Default:
+# public_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
 
-enable_dns_hostnames = true
-enable_dns_support   = true
+# CIDR blocks for private subnets (one per AZ). Workers in a fully-private cluster live here. Set to [] to skip.
+# Default: []
+# private_subnet_cidrs = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"]
 
-tags = {
-  Project     = "max-weather"
-  Environment = "poc"
-  ManagedBy   = "terraform"
-}
+# Additional CIDR blocks to associate with the VPC. Required for VPC CNI custom networking ('2nd networking') so pods can use IPs from a separate, large range (commonly 100.64.0.0/16) while nodes stay on the primary CIDR. Empty = feature disabled.
+# Default: []
+# secondary_vpc_cidrs = []
+
+# CIDR blocks for pod subnets (one per AZ) carved from secondary_vpc_cidrs. VPC CNI custom networking assigns pod IPs from these subnets via ENIConfig CRs (caller-applied). Must lie inside secondary_vpc_cidrs. Empty = feature disabled.
+# Default: []
+# pod_subnet_cidrs = []
+
+# Whether to create a single NAT Gateway (in the first public subnet) and route private subnets through it. When false (recommended for fully-private with VPC endpoints), private subnets have no default route to the internet.
+# Default: false
+# enable_nat_gateway = false
+
+# Whether to create the VPC endpoints required for a fully-private EKS cluster (interface + S3 gateway).
+# Default: false
+# enable_vpc_endpoints = true
+
+# Map of interface VPC endpoints to create. Key = service short name; value = service suffix appended to com.amazonaws.<region>. Default ships 18 baseline EKS endpoints: ec2, ecr.api, ecr.dkr, sts, logs, eks, eks-auth, kms, sqs, autoscaling, elasticloadbalancing, ssm, ssmmessages, ec2messages, monitoring, secretsmanager, elasticfilesystem, xray.
+# Default (REPLACE semantics — supplying a value fully replaces this default):
+# vpc_interface_endpoints = {
+#   ec2                  = "ec2"
+#   ecr_api              = "ecr.api"
+#   ecr_dkr              = "ecr.dkr"
+#   sts                  = "sts"
+#   logs                 = "logs"
+#   eks                  = "eks"
+#   eks_auth             = "eks-auth"
+#   kms                  = "kms"
+#   sqs                  = "sqs"
+#   autoscaling          = "autoscaling"
+#   elasticloadbalancing = "elasticloadbalancing"
+#   ssm                  = "ssm"
+#   ssmmessages          = "ssmmessages"
+#   ec2messages          = "ec2messages"
+#   monitoring           = "monitoring"
+#   secretsmanager       = "secretsmanager"
+#   elasticfilesystem    = "elasticfilesystem"
+#   xray                 = "xray"
+# }
+
+# Whether to create the S3 gateway endpoint. Required for ECR image layer pulls in a fully-private cluster.
+# Default: true
+# enable_s3_gateway_endpoint = true
+
+# Whether private DNS is enabled on interface endpoints. Required so SDK calls to *.amazonaws.com hostnames resolve to endpoint ENIs.
+# Default: true
+# vpc_endpoint_private_dns_enabled = true
+
+# Enable DNS hostnames in the VPC.
+# Default: true
+# enable_dns_hostnames = true
+
+# Enable DNS support in the VPC.
+# Default: true
+# enable_dns_support = true
+
+# Common tags applied to all resources.
+# Default: {}
+# tags = {
+#   Project     = "max-weather"
+#   Environment = "poc"
+#   ManagedBy   = "terraform"
+# }
+
+# Whether public subnets assign a public IPv4 to instances launched into them.
+# Default: true
+# map_public_ip_on_launch = true
+
+# Destination CIDR for the default route in the public route table.
+# Default: "0.0.0.0/0"
+# public_route_destination_cidr_block = "0.0.0.0/0"
+
+# Subnet tag key consumed by the AWS Load Balancer Controller for internet-facing LBs.
+# Default: "kubernetes.io/role/elb"
+# subnet_tag_role_elb_key = "kubernetes.io/role/elb"
+
+# Subnet tag key consumed by the AWS Load Balancer Controller for internal LBs.
+# Default: "kubernetes.io/role/internal-elb"
+# subnet_tag_role_internal_elb_key = "kubernetes.io/role/internal-elb"
+
+# Tag value applied to subnets for the kubernetes.io/role/elb and internal-elb keys.
+# Default: "1"
+# subnet_tag_role_elb_value = "1"
+
+# Prefix for the EKS cluster subnet discovery tag. Full key = <prefix><cluster_name>.
+# Default: "kubernetes.io/cluster/"
+# subnet_tag_cluster_key_prefix = "kubernetes.io/cluster/"
+
+# Tag value for the kubernetes.io/cluster/<cluster_name> subnet discovery tag.
+# Default: "shared"
+# subnet_tag_cluster_value = "shared"
+
+# Subnet tag key consumed by Karpenter EC2NodeClass.subnetSelectorTerms.
+# Default: "karpenter.sh/discovery"
+# subnet_tag_karpenter_discovery_key = "karpenter.sh/discovery"
+
+# VPC name suffix (rarely overridden).
+# Default: "-vpc"
+# vpc_name_suffix = "-vpc"
+
+# Internet Gateway name suffix (rarely overridden).
+# Default: "-igw"
+# internet_gateway_name_suffix = "-igw"
+
+# Public subnet name prefix (rarely overridden).
+# Default: "-public-"
+# public_subnet_name_prefix = "-public-"
+
+# Public subnet name suffix (rarely overridden).
+# Default: ""
+# public_subnet_name_suffix = ""
+
+# Private subnet name prefix (rarely overridden).
+# Default: "-private-"
+# private_subnet_name_prefix = "-private-"
+
+# Pod subnet name prefix (rarely overridden).
+# Default: "-pod-"
+# pod_subnet_name_prefix = "-pod-"
+
+# Public route table name suffix (rarely overridden).
+# Default: "-public-rt"
+# public_route_table_name_suffix = "-public-rt"
+
+# Private route table name suffix (rarely overridden).
+# Default: "-private-rt"
+# private_route_table_name_suffix = "-private-rt"
+
+# NAT Gateway name suffix (rarely overridden).
+# Default: "-nat"
+# nat_gateway_name_suffix = "-nat"
+
+# NAT EIP name suffix (rarely overridden).
+# Default: "-nat-eip"
+# nat_eip_name_suffix = "-nat-eip"
+
+# VPC endpoint security group name suffix (rarely overridden).
+# Default: "-vpce-sg"
+# vpc_endpoint_sg_name_suffix = "-vpce-sg"

@@ -1,23 +1,23 @@
 # Example tfvars for the api_gateway module.
-# Most consumers should call this module from an env composition (see envs/poc/).
+# Most consumers should call this module from an env composition (see infra/envs/poc/).
 # These values mirror the env defaults so the module can also be invoked standalone.
 
 name                    = "poc-max-weather"
 lambda_authorizer_arn   = "arn:aws:lambda:us-east-1:123456789012:function:poc-max-weather-authorizer"
-lambda_function_name    = "poc-max-weather-api"
+lambda_function_name    = "poc-max-weather-authorizer"
 nlb_dns                 = "example-nlb-1234567890.elb.us-east-1.amazonaws.com"
-ingress_host            = "api.example.internal" # API Gateway v2 only supports static (non-templated) Host overwrites.
+ingress_host            = "api.example.internal"
 
 stages = {
-  dev = {
-    secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-dev-jwt-secret-AbCdEf"
-    issuer     = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ExampleDevID"
-    scope      = "email openid"
+  staging = {
+    secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-authorizer-jwt-secret-AbCdEf"
+    issuer     = "max-weather-authorizer-staging"
+    scope      = "weather-api/read"
   }
   prod = {
-    secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-prod-jwt-secret-XyZaBc"
-    issuer     = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ExampleProdID"
-    scope      = "email openid profile"
+    secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:poc-max-weather-authorizer-jwt-secret-prod-XyZaBc"
+    issuer     = "max-weather-authorizer-prod"
+    scope      = "weather-api/read"
   }
 }
 
@@ -27,3 +27,8 @@ tags = {
   ManagedBy   = "terraform"
 }
 # Supplying this map REPLACES the default {}. Re-declare every entry you want kept.
+
+# VPC Link mode (optional) — for private cluster topology
+# vpc_link_subnet_ids         = ["subnet-12345", "subnet-67890"]
+# vpc_link_security_group_ids = ["sg-12345"]
+# nlb_listener_arn            = "arn:aws:elasticloadbalancing:us-east-1:123456789012:listener/net/example-nlb/1234567890abcdef/1234567890abcdef"

@@ -19,7 +19,13 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      nodeSelector:
+        role: workload
       tolerations:
+        - key: role
+          operator: Equal
+          value: workload
+          effect: NoSchedule
         - key: karpenter.sh/provisioned
           operator: Equal
           value: "true"
