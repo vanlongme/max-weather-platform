@@ -173,8 +173,13 @@ spec:
             sh '''
               set -eu
               aws eks update-kubeconfig --name "$CLUSTER" --region "$AWS_REGION"
-              kubectl rollout undo deployment/weather-api -n weather-${ENV}
-              echo "Rollback complete for staging"
+              REV_COUNT=$(kubectl rollout history deployment/weather-api -n weather-${ENV} 2>/dev/null | tail -n +3 | wc -l || echo 0)
+              if [ "$REV_COUNT" -ge 2 ]; then
+                kubectl rollout undo deployment/weather-api -n weather-${ENV}
+                echo "Rollback complete for staging"
+              else
+                echo "No prior revision to roll back to (first deploy or single-revision); skipping rollback"
+              fi
             '''
           }
         } else {
