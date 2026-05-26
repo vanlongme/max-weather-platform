@@ -299,23 +299,20 @@ spec:
             set -eu
             # Build image into a workspace tarball — NO push yet.
             # Trivy scans the tarball in the next stage; only on pass does the
-            # subsequent push stage re-run kaniko, hitting ECR layer cache
-            # (cache:sha256:* blobs) to skip already-built layers.
+            # subsequent push stage re-run kaniko with --cache=true to hit ECR
+            # layer cache (cache:sha256:* blobs) and skip already-built layers.
             #
-            # --no-push-cache: keep cache layers out of ECR on this build pass.
-            # Cache will be written by the Push Image stage on trivy pass,
-            # so failed builds do not pollute the registry.
+            # No --cache here: kaniko rejects --cache with --no-push unless
+            # --cache-repo is set; we deliberately bypass the layer cache on
+            # the gate pass so a failed scan cannot poison the registry cache.
             /kaniko/executor \
               --context=dir://${WORKSPACE}/app \
               --dockerfile=Dockerfile \
               --destination=${APP_REPO}:${GIT_SHA} \
               --no-push \
-              --no-push-cache \
               --tar-path=${WORKSPACE}/image.tar \
               --snapshot-mode=redo \
               --use-new-run \
-              --cache=true \
-              --cache-ttl=24h \
               --verbosity=info
             ls -lh ${WORKSPACE}/image.tar
           '''
