@@ -186,7 +186,12 @@ private String _trivyImage(String raw) {
     }
     out << "\n## Top 10 CVEs\n\n"
     out << "| CVE | Severity | Package | Installed → Fixed |\n|-----|----------|---------|-------------------|\n"
-    vulns.toSorted { a, b -> _sevRank(b.Severity) <=> _sevRank(a.Severity) }.take(10).each { v ->
+    def ordered = []
+    ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN'].each { sev ->
+        ordered.addAll(bySev[sev] ?: [])
+    }
+    def top = ordered.size() > 10 ? ordered.subList(0, 10) : ordered
+    top.each { v ->
         def id = v.VulnerabilityID ?: '?'
         def sev = v.Severity ?: '?'
         def pkg = v.PkgName ?: '?'
