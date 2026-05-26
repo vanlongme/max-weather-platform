@@ -1,0 +1,7 @@
+# .trivyignore — Trivy vulnerability suppression list
+# Format: https://aquasecurity.github.io/trivy/latest/docs/configuration/filtering/#by-finding-ids
+# Entries have NO TTL — they accumulate indefinitely by design.
+# Add entries ONLY with a comment explaining: CVE ID, affected package, justification, date added.
+#
+# Example entry format:
+# CVE-2023-XXXXX  # pkg: example-package@1.0.0 | justification: not reachable via our code | added: 2025-01-01

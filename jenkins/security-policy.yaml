@@ -1,0 +1,77 @@
+---
+# jenkins/security-policy.yaml
+# Central security gate configuration — single source of truth for all scan
+# modes and thresholds.
+#
+# To flip a scan from advisory → blocking:
+#   1. Change `mode: advisory` to `mode: blocking` for the desired scan key.
+#   2. Commit and push to main.
+#   3. The next CI build picks up the change automatically.
+#
+# Suppression entries (allowlist_file) have NO TTL — they accumulate
+# indefinitely by design.
+# Format refs:
+#   gitleaks: https://github.com/gitleaks/gitleaks#configuration
+#   trivy severity:
+#     https://aquasecurity.github.io/trivy/latest/docs/configuration/
+#     filtering/#by-severity
+#   semgrep rulesets: https://semgrep.dev/explore
+#   cosign KMS URI:
+#     https://docs.sigstore.dev/cosign/key_management/
+#     signing_with_self-managed_keys/#aws-kms
+#   ZAP baseline config:
+#     https://www.zaproxy.org/docs/docker/baseline-scan/#configuration-file
+version: 1
+scans:
+  secrets:
+    tool: gitleaks
+    mode: advisory
+    severity_threshold: any
+    allowlist_file: .gitleaks.toml
+  sast:
+    tool: semgrep
+    mode: advisory
+    severity_threshold: "ERROR,WARNING"
+    rulesets:
+      - p/nodejs
+      - p/owasp-top-ten
+      - p/javascript
+    allowlist_file: .semgrepignore
+  sca_fs:
+    tool: trivy-fs
+    mode: advisory
+    severity_threshold: "HIGH,CRITICAL"
+    allowlist_file: .trivyignore
+    ignore_unfixed: true
+  sca_npm:
+    tool: npm-audit
+    mode: advisory
+    severity_threshold: high
+    production_only: true
+  container:
+    tool: trivy-img
+    mode: advisory
+    severity_threshold: "HIGH,CRITICAL"
+    allowlist_file: .trivyignore
+    ignore_unfixed: true
+  dast:
+    tool: zap-baseline
+    mode: advisory
+    severity_threshold: High
+    allowlist_file: .zap/baseline.conf
+  sign:
+    tool: cosign
+    mode: advisory
+    required: true
+    kms_alias: alias/max-weather-cosign-signer
+  verify:
+    tool: cosign
+    mode: advisory
+    required: true
+  sbom:
+    tool: syft
+    mode: advisory
+    required: true
+    format: spdx-json
+notifications:
+  target: jenkins_ui

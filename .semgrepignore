@@ -1,0 +1,16 @@
+# .semgrepignore — semgrep SAST scan path exclusions
+# Format: https://semgrep.dev/docs/ignoring-files-folders-code/
+# Entries have NO TTL — they accumulate indefinitely by design.
+# Add entries ONLY with a comment explaining why the path is safe to skip.
+
+# Third-party dependencies (not our code)
+node_modules/
+
+# Test coverage artifacts
+coverage/
+
+# Fixture branches — these intentionally contain vulnerable patterns for gate testing
+tests/security/fixtures/
+
+# Documentation — no executable code
+docs/

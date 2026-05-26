@@ -206,14 +206,138 @@ Credentials are stored in **AWS Secrets Manager**, synced into Kubernetes by **E
 
 ---
 
+## Security Gates
+
+Four security gate stages run in `jenkins/pipelines/ci.Jenkinsfile`. All scan modes are governed by [`jenkins/security-policy.yaml`](security-policy.yaml) — the single source of truth for thresholds, allowlists, and blocking vs. advisory behaviour. See [`../ARCHITECTURE.md`](../ARCHITECTURE.md) section 5 for the full CI/CD flow with gate positions.
+
+### Gate Layout
+
+```
+main push  →  max-weather-ci
+  ├── Checkout
+  ├── Resolve ECR Repo
+  ├── Pre-Source Gates  (parallel)
+  │     ├── Secret Scan (gitleaks)     — scans git history; report: gitleaks-report.json
+  │     ├── SAST (semgrep)             — p/nodejs, p/owasp-top-ten, p/javascript; report: semgrep-report.json
+  │     ├── SCA FS (trivy-fs)          — vuln+secret scan of app/; report: trivy-fs-report.json
+  │     └── SCA NPM (npm audit)        — production deps only (--omit=dev); report: npm-audit-report.json
+  ├── App Lint + Test
+  ├── Build + Push App Image (kaniko)
+  ├── Image Gates  (parallel)
+  │     ├── Trivy Image                — container CVE scan; report: trivy-image-report.json
+  │     ├── SBOM (syft)                — SPDX-JSON artifact: sbom.spdx.json
+  │     └── Cosign Sign                — KMS sign by digest (alias/max-weather-cosign-signer)
+  ├── Deploy to Staging
+  ├── Runtime Gates
+  │     └── ZAP Baseline               — DAST against staging API GW + minted JWT; report: zap-report.json
+  ├── Approve Prod Deploy  (24h input)
+  ├── Pre-Prod Gates  (parallel)
+  │     ├── Cosign Verify              — ALWAYS blocking; re-verifies digest before prod deploy
+  │     └── Drift Re-scan              — trivy image re-scan to catch CVEs published since Image Gates
+  └── Deploy to Prod
+```
+
+All scan artifacts are archived to the Jenkins build (`archiveArtifacts`). Each gate reads mode (`advisory`/`blocking`) and thresholds from `security-policy.yaml` via the `securityPolicy` Shared Library var — scanners never hardcode thresholds.
+
+### Policy Flip Procedure
+
+To promote a scan from advisory to blocking:
+
+1. Edit `jenkins/security-policy.yaml`, change the target scan's `mode` field:
+
+   ```yaml
+   scans:
+     secrets:
+       mode: blocking   # was: advisory
+   ```
+
+2. Commit and push to `main`.
+3. The next CI build picks up the change automatically — no seed re-run, no pod restart.
+
+All 9 scan keys start as `mode: advisory`. Flip them one at a time; verify build stability before flipping the next.
+
+### Shared Library Usage
+
+The `max-weather-shared` Shared Library (`jenkins/vars/securityPolicy.groovy`) exposes three helpers used inside gate stages:
+
+| Call | Returns | Example |
+|------|---------|---------|
+| `securityPolicy.blocking('secrets')` | `true` if `mode: blocking`, else `false` | Gate `if (exitCode != 0 && securityPolicy.blocking('secrets'))` |
+| `securityPolicy.thresholdFor('sast')` | String severity (e.g. `HIGH`) or `null` | Passed as `--severity ${threshold}` |
+| `securityPolicy.allowlistFor('sca_fs')` | Path string (e.g. `.trivyignore`) or `null` | Passed as `--ignorefile ${allowlist}` |
+
+The library is loaded via `@Library('max-weather-shared') _` on line 1 of `ci.Jenkinsfile`. `implicit: false` in JCasC means each Jenkinsfile must opt in explicitly.
+
+### Allowlist Table
+
+Suppress a specific scanner finding by adding an entry to the relevant allowlist file and committing it. Suppressions have no TTL — audit them periodically.
+
+| File | Scanner | Purpose | When to add entries |
+|------|---------|---------|---------------------|
+| `.gitleaks.toml` | gitleaks | Exclude false-positive secret patterns or paths | Test fixtures with dummy credentials, known-safe config values |
+| `.semgrepignore` | semgrep | Skip files or directories from SAST scan | Vendored code, generated files, third-party bundles |
+| `.trivyignore` | trivy-fs, trivy-img, drift re-scan | Suppress specific CVE IDs by severity | Unfixed CVEs with confirmed no-impact justification (document the reason in a comment) |
+| `.zap/baseline.conf` | ZAP baseline | Ignore specific ZAP rule IDs or alert types | False positives confirmed safe for the API's threat model |
+
+### Cosign Verify Procedure
+
+To verify a signed image outside CI (e.g. post-incident audit):
+
+```bash
+cosign verify \
+  --key awskms:///alias/max-weather-cosign-signer \
+  <ECR_REPO>@<DIGEST>
+```
+
+Where `<ECR_REPO>` is the full ECR URI (e.g. `123456789.dkr.ecr.us-east-1.amazonaws.com/poc-max-weather-api-repo`) and `<DIGEST>` is the `sha256:...` digest from ECR. The `jenkins-agent` IAM role has KMS Verify permission. Any IAM principal with `kms:Verify` on `alias/max-weather-cosign-signer` can run this.
+
+The `Pre-Prod Gates / Cosign Verify` stage runs this check automatically before every prod deploy and always runs in blocking mode regardless of the `verify` key's `mode` value in `security-policy.yaml` (`set -eu` makes any non-zero exit fatal).
+
+### Fixture Test Harness
+
+`jenkins/tests/security-policy-fixtures/` contains minimal YAML fixtures and a Groovy unit test for `securityPolicy.groovy`. Run locally (requires Groovy 3+):
+
+```bash
+cd jenkins
+groovy tests/security-policy-fixtures/securityPolicySpec.groovy
+```
+
+Tests cover: `blocking()` returns `false` for advisory keys, `true` for blocking keys; `thresholdFor()` returns correct severity; `allowlistFor()` returns correct path.
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Trivy stages fail with "unable to open DB file" or cache miss every build | `trivy-db-cache` PVC not bound — StorageClass `ebs-csi-default-sc` not available or PVC stuck in `Pending` | `kubectl get pvc trivy-db-cache -n jenkins`; verify EBS CSI driver is running (`kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver`); check `ebs-csi-default-sc` StorageClass exists |
+| ZAP stage skipped or exits with "STAGING_URL not set" | `STAGING_URL` Jenkins env var not configured, and `terraform output` call failed (Terraform state not accessible from agent pod) | Set `STAGING_URL` as a Jenkins global environment variable in JCasC (`jenkins.globalNodeProperties`) or as a pipeline credential; value: `$(cd infra/envs/poc && terraform output -raw api_gateway_invoke_url_staging)` |
+| Cosign sign/verify fails with "AccessDenied" or KMS permission error | `jenkins-agent` IAM role missing `kms:Sign` or `kms:Verify` on `alias/max-weather-cosign-signer` — Pod Identity binding may have drifted | Check Pod Identity association: `aws eks list-pod-identity-associations --cluster-name poc-max-weather-cluster`; verify IAM policy attached to the agent role includes `kms:Sign`, `kms:Verify`, `kms:GetPublicKey` on the KMS key ARN |
+
+### Follow-ups / Known Gaps
+
+Items deferred from this implementation. None of these are stubs or partial work — they don't exist yet.
+
+| Item | Reason deferred |
+|------|----------------|
+| Lambda authorizer scan | Authorizer code (`infra/envs/poc/lambdas/authorizer/`) excluded from all scan paths — different deployment lifecycle, no container image |
+| Kyverno / OPA admission control | Admission webhook infrastructure not provisioned; would require cluster-level policy CRDs outside Jenkins scope |
+| IaC scan (checkov / tfsec) | Terraform state contains sensitive outputs; safe scan requires a separate isolated runner with read-only state access, not the current agent pod |
+| K8s manifest lint (kube-linter / kubeconform) | Kustomize overlays use dynamic image substitution that breaks static lint without a full `kustomize build` step; deferred until manifest structure stabilises |
+| AWS Security Hub integration | Requires Security Hub enabled in the account and an EventBridge rule to route findings — out of scope for POC |
+| License compliance (license-checker / FOSSA) | No license policy defined yet; tool selection depends on whether FOSSA SaaS or OSS tooling is approved |
+
+---
+
 ## Cross-links
 
 - [`jenkins/jobs.groovy`](jobs.groovy) — Job DSL seed source (canonical job definitions)
 - [`jenkins/pipelines/ci.Jenkinsfile`](pipelines/ci.Jenkinsfile) — Upstream CI pipeline
 - [`jenkins/pipelines/deploy.Jenkinsfile`](pipelines/deploy.Jenkinsfile) — Downstream deploy pipeline
+- [`jenkins/security-policy.yaml`](security-policy.yaml) — Gate modes, thresholds, allowlist paths (single source of truth)
+- [`jenkins/vars/securityPolicy.groovy`](vars/securityPolicy.groovy) — Shared Library: `blocking()`, `thresholdFor()`, `allowlistFor()`
 - [`infra/envs/poc/eks-self-managed-addons/values/jenkins.yaml`](../infra/envs/poc/eks-self-managed-addons/values/jenkins.yaml) — Helm + JCasC + plugin list (Terraform-managed source of truth)
 - [`k8s/README.md`](../k8s/README.md) — Workload manifests deployed by `max-weather-deploy`
 - [`Makefile`](../Makefile) `deploy-staging` / `deploy-prod` — manual escape hatch (prefer the Jenkins job)
+- [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — Section 5 CI/CD flow with gate stages; Section 9 Security Posture
 
 ---
 
