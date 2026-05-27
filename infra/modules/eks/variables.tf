@@ -160,7 +160,7 @@ variable "cluster_addons" {
 }
 
 variable "access_entries" {
-  description = "Full map of EKS access entries to create. Caller supplies the complete map — module ships NO built-in entries. Key = entry name. Each value: { principal_arn, policy_associations = { <assoc_key> = { policy_arn, access_scope = { type, namespaces? } } } }."
+  description = "Full map of EKS access entries to create. Caller supplies the complete map — module ships NO built-in entries. Key = entry name. Each value: { principal_arn, type? (default STANDARD; set EC2_LINUX for the Karpenter node IAM role under authentication_mode=API so kubelet IAM-auths into the cluster — kubelet logs 'Unauthorized' and never registers without it), policy_associations = { <assoc_key> = { policy_arn, access_scope = { type, namespaces? } } } }. EC2_LINUX entries do not use policy_associations (EKS auto-binds the built-in node policy)."
   type        = any
   default     = {}
 }

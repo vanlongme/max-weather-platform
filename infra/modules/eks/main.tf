@@ -109,6 +109,12 @@ resource "aws_eks_access_entry" "this" {
 
   cluster_name  = aws_eks_cluster.this.name
   principal_arn = each.value.principal_arn
+  # Optional. Default STANDARD (IAM principals → cluster-admin via policy_associations).
+  # Set EC2_LINUX for the Karpenter node IAM role so kubelet on Bottlerocket /
+  # AL2023 worker nodes IAM-auths into the cluster (registers with system:nodes
+  # group + node-name SAN). Without it, authentication_mode = "API" rejects
+  # kubelet with "Unauthorized" and nodes never register.
+  type = try(each.value.type, null)
 
   tags = var.tags
 }

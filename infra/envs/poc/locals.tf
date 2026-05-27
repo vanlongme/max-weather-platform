@@ -38,6 +38,17 @@ locals {
           }
         }
       }
+      # type=EC2_LINUX is REQUIRED for the Karpenter node IAM role under
+      # authentication_mode = "API": kubelet on Karpenter-provisioned Bottlerocket
+      # workers IAM-auths via this entry (registers with system:nodes group +
+      # node-name SAN). Standard policy_associations are not used — EKS auto-binds
+      # the EC2_LINUX entry to the built-in node policy. Without it kubelet logs
+      # "Unauthorized" and nodes never register.
+      karpenter-node = {
+        principal_arn       = module.eks.karpenter_node_iam_role_arn
+        type                = "EC2_LINUX"
+        policy_associations = {}
+      }
     },
     var.eks_access_entries,
   )
