@@ -72,6 +72,42 @@ ELBv2:
     names_regex:
       - ".*max-weather.*"
 
+EC2Endpoint:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+      - ".*vpce-${PROJECT}.*"
+
+EC2Subnet:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+NetworkInterface:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+InternetGateway:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+RouteTable:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+NetworkACL:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
+EgressOnlyInternetGateway:
+  include:
+    names_regex:
+      - ".*max-weather.*"
+
 # ─── Container / Serverless ─────────────────────────────────────────────────
 
 EKSCluster:

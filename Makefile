@@ -120,4 +120,4 @@ teardown: ## Ordered teardown — terraform destroy (workload + bootstrap), then
 	bash scripts/teardown.sh
 
 teardown-force: ## Ordered teardown without interactive prompt (CI use only)
-	@echo "destroy max-weather" | bash scripts/teardown.sh
+	TEARDOWN_FORCE=1 bash scripts/teardown.sh
