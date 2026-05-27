@@ -183,6 +183,13 @@ locals {
       from_port   = 1025
       to_port     = 65535
     }
+    self_pod_traffic = {
+      description = "Node-to-node pod traffic all TCP (covers app ports below 1025 like 8080)"
+      source      = "self"
+      ip_protocol = "tcp"
+      from_port   = 1
+      to_port     = 65535
+    }
   }
 
   node_security_group_egress_rules_default = {

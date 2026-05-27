@@ -9,6 +9,13 @@ resource "aws_launch_template" "node" {
   name        = "${var.name}${var.node_group_name_separator}${each.key}"
   description = "Launch template for EKS managed node group ${each.key}"
 
+  # Attach dedicated node SG (NOT cluster primary SG). Required for pod-to-pod
+  # traffic between MNG and Karpenter nodes (both use this SG via discovery tag).
+  # AGENTS.md rule: "NEVER attach cluster primary SG to nodes — use dedicated
+  # aws_security_group.node". When LT omits SG, EKS falls back to cluster primary
+  # SG which blocks node-SG sourced traffic on app ports (e.g. 8080).
+  vpc_security_group_ids = [aws_security_group.node.id]
+
   user_data = startswith(each.value.ami_type, "BOTTLEROCKET_") ? base64encode(coalesce(each.value.bottlerocket_user_data, local.default_bottlerocket_user_data)) : null
 
   monitoring {
