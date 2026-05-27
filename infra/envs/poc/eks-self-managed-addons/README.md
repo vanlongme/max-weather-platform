@@ -28,7 +28,6 @@ after the control plane is up.
 | `ClusterSecretStore` (external-secrets) | Cluster-wide store fronting AWS Secrets Manager + SSM Parameter Store. |
 | Karpenter `EC2NodeClass` (default) | Bottlerocket AMI, dual EBS volumes (4Gi OS + 60Gi data), IMDSv2 hop 2. |
 | Karpenter `NodePool` (default) | Spot + on-demand t/m/c-family instances. |
-| `PersistentVolumeClaim` `trivy-db-cache` (jenkins ns) | 8Gi RWO on `ebs-csi-default-sc`. Mounted by ephemeral kubernetes-plugin agent pods (`ci.Jenkinsfile`) so trivy scans share a vulnerability DB across builds. Created standalone because the `jenkinsci/jenkins` chart does not support provisioning extra PVCs outside the controller STS (`persistence.volumes` only adds volumes to the controller pod). RWO accepted — POC runs one CI build at a time. |
 
 `ebs-csi-default-sc` (gp3, `WaitForFirstConsumer`, marked default) is the
 cluster's default `StorageClass`. It is created by the `aws-ebs-csi-driver`

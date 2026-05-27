@@ -104,9 +104,6 @@ spec:
         limits:
           cpu: 1000m
           memory: 1Gi
-      volumeMounts:
-        - name: trivy-db-cache
-          mountPath: /root/.cache/trivy
     - name: gitleaks
       image: zricethezav/gitleaks:latest
       command: ["sleep"]
@@ -132,9 +129,6 @@ spec:
           cpu: 1000m
           memory: 2Gi
   volumes:
-    - name: trivy-db-cache
-      persistentVolumeClaim:
-        claimName: trivy-db-cache
     - name: docker-storage
       emptyDir:
         sizeLimit: 16Gi

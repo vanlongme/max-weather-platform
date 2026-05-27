@@ -281,7 +281,7 @@ Suppress a specific scanner finding by adding an entry to the relevant allowlist
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Trivy stage fails with "unable to open DB file" or cache miss every build | `trivy-db-cache` PVC not bound — StorageClass `ebs-csi-default-sc` not available or PVC stuck in `Pending` | `kubectl get pvc trivy-db-cache -n jenkins`; verify EBS CSI driver is running (`kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver`); check `ebs-csi-default-sc` StorageClass exists |
+| Trivy stage fails with "unable to open DB file" | trivy container failed to download DB at build start (no shared PVC cache — fresh download per build by design) | Check trivy container egress to `ghcr.io/aquasecurity/trivy-db`; verify NAT GW / VPCEs reachable from build pod; re-run build |
 | Container Image Scan fails but image already in ECR | Pipeline ran an older revision that pushed first then scanned, or kaniko cache re-run ran before trivy completed | Verify build order in `ci.Jenkinsfile`: `Build Container Image` → `Container Image Scan` → `Push Image to ECR`. If trivy fails, the `Push Image to ECR` stage must not execute. Check Jenkins stage view for skipped stages |
 | Kaniko `--no-push` stage missing `image.tar` for trivy | `WORKSPACE` mismatch between containers, or kaniko OOM-killed mid-build | All containers share `/home/jenkins/agent` workspace via the JNLP pod template — verify `ls -lh ${WORKSPACE}/image.tar` in build logs; bump kaniko memory limit in `ci.Jenkinsfile` pod spec if OOM |
 
