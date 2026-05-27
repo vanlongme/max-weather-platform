@@ -21,12 +21,18 @@ spec:
       effect: NoSchedule
   restartPolicy: Never
   containers:
+    # Resource requests are intentionally lean. Sidecar containers that only
+    # run in selected stages (`sleep infinity` between) request minimal CPU
+    # so the entire build pod fits onto the infra MNG (m6i.large, ~1930m
+    # allocatable per node, already hosting ingress-nginx + addons). Limits
+    # remain generous — busy stages can still burst. Total pod requests now
+    # ~280m cpu / ~720Mi mem (was 950m / 2.4Gi).
     - name: jnlp
       image: jenkins/inbound-agent:latest-jdk21
       resources:
         requests:
-          cpu: 50m
-          memory: 128Mi
+          cpu: 25m
+          memory: 96Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -37,8 +43,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 50m
+          memory: 128Mi
         limits:
           cpu: 1000m
           memory: 1Gi
@@ -52,8 +58,8 @@ spec:
           value: us-east-1
       resources:
         requests:
-          cpu: 50m
-          memory: 128Mi
+          cpu: 25m
+          memory: 64Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -73,8 +79,8 @@ spec:
           value: ""
       resources:
         requests:
-          cpu: 500m
-          memory: 1Gi
+          cpu: 100m
+          memory: 256Mi
         limits:
           cpu: 2000m
           memory: 4Gi
@@ -93,8 +99,8 @@ spec:
           value: "true"
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 25m
+          memory: 64Mi
         limits:
           cpu: 1000m
           memory: 1Gi
@@ -108,8 +114,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 50m
-          memory: 128Mi
+          cpu: 25m
+          memory: 64Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -120,8 +126,8 @@ spec:
       tty: true
       resources:
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 25m
+          memory: 64Mi
         limits:
           cpu: 1000m
           memory: 2Gi
