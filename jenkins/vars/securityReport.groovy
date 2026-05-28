@@ -207,8 +207,8 @@ private String _npmAudit(String raw) {
             }
         }
     }
-    int total = ordered.size()
-    int limit = total > 10 ? 10 : total
+    int sz = ordered.size()
+    int limit = sz > 10 ? 10 : sz
     for (int i = 0; i < limit; i++) {
         def e = ordered[i]
         def name = e.k
