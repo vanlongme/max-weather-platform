@@ -195,18 +195,31 @@ private String _npmAudit(String raw) {
     out << _sevTable(counts, ['critical', 'high', 'moderate', 'low', 'info'])
     out << "## Top 10 vulnerable packages\n\n"
     out << "| Severity | Package | Via |\n|----------|---------|-----|\n"
-    List entries = []
-    vulns.each { k, v -> entries.add([k: k, v: v]) }
-    entries = entries.toSorted { a, b -> _sevRank(b.v?.severity ?: '') <=> _sevRank(a.v?.severity ?: '') }
-    int n = Math.min(10, entries.size())
-    for (int i = 0; i < n; i++) {
-        def e = entries[i]
+    // CPS-safe ordering: bucket by severity rank then concat. Avoids
+    // List.sort/toSorted with Closure which Jenkins workflow-cps coerces
+    // to the closure's int return value (Integer instead of List).
+    List ordered = []
+    ['critical', 'high', 'moderate', 'low', 'info', ''].each { sev ->
+        vulns.each { k, v ->
+            def vsev = (v?.severity ?: '').toString().toLowerCase()
+            if (vsev == sev) {
+                ordered.add([k: k, v: v])
+            }
+        }
+    }
+    int total = ordered.size()
+    int limit = total > 10 ? 10 : total
+    for (int i = 0; i < limit; i++) {
+        def e = ordered[i]
         def name = e.k
         def v = e.v ?: [:]
         def sev = v.severity ?: 'info'
-        def viaList = (v.via ?: []).collect { it instanceof Map ? (it.title ?: it.name ?: '?') : it.toString() }
-        def viaTrunc = viaList.size() > 2 ? viaList.subList(0, 2) : viaList
-        def via = viaTrunc.join(', ')
+        List viaList = []
+        (v.via ?: []).each { it ->
+            viaList.add(it instanceof Map ? (it.title ?: it.name ?: '?') : it.toString())
+        }
+        List viaTrunc = viaList.size() > 2 ? viaList.subList(0, 2) : viaList
+        String via = viaTrunc.join(', ')
         if (via.length() > 60) via = via.substring(0, 60)
         out << "| ${_sevBadge(sev)} | `${name}` | ${via} |\n"
     }
