@@ -39,7 +39,7 @@ scans:
     production_only: true
   container:
     tool: trivy-img
-    mode: advisory
+    mode: blocking
     severity_threshold: "HIGH,CRITICAL"
     allowlist_file: .trivyignore
     ignore_unfixed: true
