@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: weather-staging
 
 resources:
+  - namespace.yaml
   - ../../base
 
 images:

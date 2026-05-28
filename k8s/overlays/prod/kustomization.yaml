@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: weather-prod
 
 resources:
+  - namespace.yaml
   - ../../base
 
 images:
