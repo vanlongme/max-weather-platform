@@ -310,7 +310,9 @@ def aggregate(Map args = [:]) {
             return
         }
         def body = readFile(path)
-        def clean = body.contains('✅ PASS')
+        // Per-tool banner now uses '✅ **PASS**' (markdown bold). Match either
+        // bold or plain form so older summary files remain compatible.
+        def clean = body.contains('✅ **PASS**') || body.contains('✅ PASS')
         def m = body =~ /(\d+) finding\(s\)/
         int n = clean ? 0 : (m ? (m[0][1] as int) : 0)
         perTool[t] = [status: clean ? 'PASS' : 'FAIL', findings: n, body: body]
