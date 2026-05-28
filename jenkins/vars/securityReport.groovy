@@ -62,10 +62,10 @@ def summarize(Map args) {
 }
 
 // ---------------------------------------------------------------------------
-// Severity formatting helpers — render colored, bolded badges that work in
-// both Markdown renderers (Jenkins build description, Blue Ocean, GitHub)
-// and the plain-text console fallback. Emoji acts as the universal color
-// signal; the HTML span provides true color where supported.
+// Severity formatting helpers — emoji + markdown bold only. No raw HTML.
+// Jenkins default markup formatter is plain-text and would escape <span>
+// tags as literal characters; emoji renders identically in plain-text,
+// markdown viewers, and terminal — the universal color signal.
 // ---------------------------------------------------------------------------
 private String _sevBadge(String sev) {
     def s = (sev ?: 'UNKNOWN').toString().toUpperCase()
@@ -74,20 +74,20 @@ private String _sevBadge(String sev) {
     if (s == 'WARNING')  s = 'HIGH'
     if (s == 'MODERATE') s = 'MEDIUM'
     switch (s) {
-        case 'CRITICAL': return '<span style="color:#d73a49"><strong>🔴 CRITICAL</strong></span>'
-        case 'HIGH':     return '<span style="color:#e36209"><strong>🟠 HIGH</strong></span>'
-        case 'MEDIUM':   return '<span style="color:#dbab09"><strong>🟡 MEDIUM</strong></span>'
-        case 'LOW':      return '<span style="color:#0366d6"><strong>🔵 LOW</strong></span>'
-        case 'INFO':     return '<span style="color:#6a737d"><strong>⚪ INFO</strong></span>'
-        default:         return '<span style="color:#6a737d"><strong>⚪ UNKNOWN</strong></span>'
+        case 'CRITICAL': return '🔴 **CRITICAL**'
+        case 'HIGH':     return '🟠 **HIGH**'
+        case 'MEDIUM':   return '🟡 **MEDIUM**'
+        case 'LOW':      return '🔵 **LOW**'
+        case 'INFO':     return '⚪ **INFO**'
+        default:         return '⚪ **UNKNOWN**'
     }
 }
 
 private String _statusBanner(int count, String cleanMsg) {
     if (count == 0) {
-        return "<span style=\"color:#28a745\"><strong>✅ PASS</strong></span> — ${cleanMsg}\n"
+        return "✅ **PASS** — ${cleanMsg}\n"
     }
-    return "<span style=\"color:#d73a49\"><strong>❌ FAIL</strong></span> — ${count} finding(s)\n"
+    return "❌ **FAIL** — ${count} finding(s)\n"
 }
 
 private String _sevTable(Map counts, List order) {
@@ -195,13 +195,20 @@ private String _npmAudit(String raw) {
     out << _sevTable(counts, ['critical', 'high', 'moderate', 'low', 'info'])
     out << "## Top 10 vulnerable packages\n\n"
     out << "| Severity | Package | Via |\n|----------|---------|-----|\n"
-    def entries = vulns.entrySet().toList().sort { -_sevRank(it.value?.severity ?: '') }
-    entries.take(10).each { e ->
-        def name = e.key
-        def v = e.value ?: [:]
+    List entries = []
+    vulns.each { k, v -> entries.add([k: k, v: v]) }
+    entries = entries.toSorted { a, b -> _sevRank(b.v?.severity ?: '') <=> _sevRank(a.v?.severity ?: '') }
+    int n = Math.min(10, entries.size())
+    for (int i = 0; i < n; i++) {
+        def e = entries[i]
+        def name = e.k
+        def v = e.v ?: [:]
         def sev = v.severity ?: 'info'
-        def via = (v.via ?: []).collect { it instanceof Map ? (it.title ?: it.name ?: '?') : it.toString() }.take(2).join(', ')
-        out << "| ${_sevBadge(sev)} | `${name}` | ${via.take(60)} |\n"
+        def viaList = (v.via ?: []).collect { it instanceof Map ? (it.title ?: it.name ?: '?') : it.toString() }
+        def viaTrunc = viaList.size() > 2 ? viaList.subList(0, 2) : viaList
+        def via = viaTrunc.join(', ')
+        if (via.length() > 60) via = via.substring(0, 60)
+        out << "| ${_sevBadge(sev)} | `${name}` | ${via} |\n"
     }
     return out.toString()
 }
@@ -299,11 +306,11 @@ def aggregate(Map args = [:]) {
 
     def overall
     if (perTool.values().any { it.status == 'MISSING' }) {
-        overall = "<span style=\"color:#dbab09\"><strong>⚠️ INCOMPLETE</strong></span> — one or more scan reports missing"
+        overall = '⚠️ **INCOMPLETE** — one or more scan reports missing'
     } else if (perTool.values().every { it.status == 'PASS' }) {
-        overall = "<span style=\"color:#28a745\"><strong>✅ ALL SCANS PASSED</strong></span> — safe to promote"
+        overall = '✅ **ALL SCANS PASSED** — safe to promote'
     } else {
-        overall = "<span style=\"color:#d73a49\"><strong>❌ FINDINGS PRESENT</strong></span> — ${totalFindings} total finding(s) across scans; review before promote"
+        overall = "❌ **FINDINGS PRESENT** — ${totalFindings} total finding(s) across scans; review before promote"
     }
     md << "## Overall Posture\n\n${overall}\n\n"
 
@@ -313,22 +320,22 @@ def aggregate(Map args = [:]) {
         def info = perTool[t]
         def status
         switch (info.status) {
-            case 'PASS':    status = '<span style="color:#28a745"><strong>✅ PASS</strong></span>'; break
-            case 'FAIL':    status = '<span style="color:#d73a49"><strong>❌ FAIL</strong></span>'; break
-            default:        status = '<span style="color:#dbab09"><strong>⚠️ MISSING</strong></span>'; break
+            case 'PASS':    status = '✅ **PASS**'; break
+            case 'FAIL':    status = '❌ **FAIL**'; break
+            default:        status = '⚠️ **MISSING**'; break
         }
         def n = info.findings < 0 ? 'n/a' : info.findings.toString()
-        md << "| [${t}](#${t}) | ${status} | **${n}** |\n"
+        md << "| ${t} | ${status} | **${n}** |\n"
     }
     md << "\n---\n\n"
 
     tools.each { t ->
         def info = perTool[t]
-        md << "<a id=\"${t}\"></a>\n\n"
+        md << "## ${t}\n\n"
         if (info.body) {
             md << info.body
         } else {
-            md << "# ${t}\n\n<span style=\"color:#dbab09\"><strong>⚠️ MISSING</strong></span> — report not produced (upstream stage may have errored before emitting summary).\n"
+            md << "⚠️ **MISSING** — report not produced (upstream stage may have errored before emitting summary).\n"
         }
         md << "\n---\n\n"
     }
