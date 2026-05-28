@@ -342,6 +342,7 @@ spec:
                 --scanners vuln \
                 --severity ${threshold} \
                 --ignore-unfixed \
+                --exit-code 1 \
                 --format json \
                 --output trivy-image-report.json \
                 --ignorefile ${allowlist} \
