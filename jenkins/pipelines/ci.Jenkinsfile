@@ -406,12 +406,58 @@ spec:
       }
     }
 
+    stage('Summary Report') {
+      // Merge all per-tool *-summary.md files into a single consolidated
+      // report. Posted into the Approve Prod input message + build
+      // description so the reviewer makes the promote/abort decision from
+      // one artifact instead of clicking through individual stage outputs.
+      steps {
+        script {
+          def merged = securityReport.aggregate(
+            out: 'summary-report.md',
+            tools: ['gitleaks', 'semgrep', 'npm-audit', 'trivy-image'],
+            header: [
+              build:  env.BUILD_TAG,
+              commit: env.GIT_SHA,
+              image:  "${env.APP_REPO}:${env.GIT_SHA}",
+              result: currentBuild.currentResult
+            ]
+          )
+          // Truncate for build description: Jenkins UI truncates >~10KB.
+          def descMax = 8000
+          def desc = merged.size() > descMax
+              ? merged.substring(0, descMax) + "\n\n_…truncated, see archived summary-report.md…_"
+              : merged
+          currentBuild.description = desc
+          // Stash for Approve Prod stage (input{} can't see workspace files
+          // by default if running on a different node; stash is portable).
+          stash name: 'summary-report', includes: 'summary-report.md'
+        }
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'summary-report.md', allowEmptyArchive: true
+        }
+      }
+    }
+
     stage('Approve Prod Deploy') {
       steps {
-        timeout(time: 24, unit: 'HOURS') {
-          input message: "Promote build ${env.GIT_SHA} to PRODUCTION?",
-                ok: 'Promote',
-                submitterParameter: 'PROMOTER'
+        script {
+          unstash 'summary-report'
+          def merged = readFile('summary-report.md')
+          // Jenkins input message field renders Markdown when the build-page
+          // markdown formatter is enabled; even without it, the consolidated
+          // text is readable. Hard cap so input dialog stays usable.
+          def inputMax = 6000
+          def body = merged.size() > inputMax
+              ? merged.substring(0, inputMax) + "\n\n…truncated, see archived summary-report.md…"
+              : merged
+          timeout(time: 24, unit: 'HOURS') {
+            input message: "Promote build ${env.GIT_SHA} to PRODUCTION?\n\n${body}",
+                  ok: 'Promote',
+                  submitterParameter: 'PROMOTER'
+          }
         }
       }
     }
